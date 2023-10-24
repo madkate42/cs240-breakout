@@ -8,14 +8,9 @@ DOS = 21h
 .data
 
 paddleX BYTE 37
+paddleY BYTE 20
 
-paddle LABEL BYTE 
-BYTE 0DCh
-BYTE 0DCh
-BYTE 0DCh
-BYTE 0DCh
-BYTE 0DCh
-BYTE 0DCh
+paddleChar BYTE 0DCh
 
 gameLayout LABEL BYTE
 BYTE "+------------------------------------------------------------------------------+"
@@ -53,10 +48,12 @@ BYTE 0
 .code
 
 
-MovePaddle PROC 
+ErasePaddle PROC 
 	pushf
-	; dh - pixels down
-	; dl - pixels right
+	push dx
+	push ax
+	mov dh, paddleY
+	mov dl, paddleX
 
 	mov di, ax
 	mov ax, 0
@@ -65,29 +62,55 @@ MovePaddle PROC
 	push dx
 	mul bx
 	pop dx
-	and dx, 00001111b
+	and dx, 11111111b
 	add ax, dx
 	add ax, dx
+	mov di, ax ; setup location 
+
+	mov dl, ' ' ; setup char
+	mov cx, 6 ; counter
+	mov	ax, 0B800h ; screen loc
+	mov	es, ax ; screen seg
+	mov bp, 0
+
+onePaddleCharDelete:
+	mov es:[di + bp], dl
+	add bp, 2
+	loop onePaddleCharDelete
+
+	pop ax
+	pop dx
+	popf
+	ret
+ErasePaddle ENDP
+
+MovePaddle PROC 
+	pushf
+	mov dh, paddleY
+	mov dl, paddleX
+
 	mov di, ax
+	mov ax, 0
+	mov al, dh 
+	mov bx, 160
+	push dx
+	mul bx
+	pop dx
+	and dx, 11111111b
+	add ax, dx
+	add ax, dx
+	mov di, ax ; setup location 
 
-	mov dx, OFFSET paddle 
-	mov bp, dx
-	mov dl, ds:[bp]
+	mov dl, 0DCh ; setup char
+	mov cx, 6 ; counter
+	mov	ax, 0B800h ; screen loc
+	mov	es, ax ; screen seg
+	mov bp, 0
 
-	mov	ax, 0B800h
-	mov	es, ax
-	mov es:[di], dl
-	add di, 2
-	mov es:[di], dl
-	add di, 2
-	mov es:[di], dl
-	add di, 2
-	mov es:[di], dl
-	add di, 2
-	mov es:[di], dl
-
-	mov dl, 'K'
-	mov es:[200], dl
+onePaddleChar:
+	mov es:[di + bp], dl 
+	add bp, 2
+	loop onePaddleChar
 
 	popf
 	ret
@@ -104,8 +127,6 @@ SetupScreen PROC
 	mov cx, 1920
 	mov ax, 0
 ; screen is 80 * 24
-
-; col:
 pixel:
 	mov	ax, 0B800h
 	mov	es, ax
@@ -120,46 +141,42 @@ empty:
 	add di, 2
 	inc bp
 loop pixel
-	; inc ax
-	; cmp ax, 24
-	; jb col
-; row2:
-; 	mov dl, ds:[bp]
-; 	mov	ax, 0B800h
-; 	mov	es, ax
-; 	mov es:[di], dl
-; 	add di, 2
-; 	inc bp
-; 	call ReadChar
-; loop row2
-
 	pop di
 	popf
 	ret
 SetupScreen ENDP
 
-InteractionLoop PROC 
-	mov dh, 20
-	mov dl, 37
+
+UserAction PROC 
+	pushf
+
+	mov dh, paddleY
+	mov dl, paddleX
 	call MovePaddle
+
 input:
 	mov ah, 07h 
 	int 21h
+	call ErasePaddle
 	cmp al, 'a'
-	je paddleRight 
-	jmp paddleLeft
+	je paddleLeft 
+	cmp al, 'd' 
+	je paddleRight
+	jmp finishUserAction
 paddleRight:
-	mov dh, 20
-	mov dl, 36
+	inc paddleX
 	call MovePaddle
 	jmp input 
 paddleLeft:
-	mov dh, 20
-	mov dl, 38
+	dec paddleX
 	call MovePaddle
 	jmp input 
+
+finishUserAction:
+	popf
 	ret
-InteractionLoop ENDP
+UserAction ENDP
+
 
 main PROC
 	mov	ax, @data	; Setup the data segment
@@ -167,11 +184,7 @@ main PROC
 	
 	mov dx, OFFSET gameLayout
 	call SetupScreen
-	call InteractionLoop
-	mov dh, 10
-	mov dl, 1
-	call MovePaddle
-	call ReadChar
+	call UserAction
 
 
 	mov	ax, DOSEXIT	; Signal DOS that we are done
