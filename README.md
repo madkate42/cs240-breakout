@@ -4,4 +4,5 @@ paddleX and paddleY are variables that store current paddle location (y - pixels
 
 ### 
 [ ] Rewrite Setup Screen..
+#
 [ ] Bug with Bricks.. (fix array)
