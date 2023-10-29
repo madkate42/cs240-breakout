@@ -16,22 +16,64 @@ GameOver BYTE 0
 
 CursorPos WORD 0000h, 0000h
 
-BallX BYTE 20
-BallY Byte 38
+ballX BYTE 20
+ballY BYTE 38
 
 paddleX BYTE 37
 paddleY BYTE 20
 
-bricky BYTE 4
-brickx BYTE 2
+brickY BYTE 4
+brickX BYTE 2
 
 paddleChar BYTE 0DCh
+
+brickChar BYTE 0DCh
+
+bricksScores LABEL BYTE 
+BYTE 0
+BYTE 0
+BYTE 1
+BYTE 9 Dup(0)
+BYTE 11 Dup(2)
+BYTE 12 Dup(2)
+BYTE 11 Dup(1)
+BYTE 12 Dup(1)
+BYTE 11 Dup(1)
+BYTE 12 Dup(1)
+
 
 gameLayout LABEL BYTE
 BYTE "+------------------------------------------------------------------------------+"
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
+BYTE "+------------------------------------------------------------------------------+"
 BYTE "|                                                                              |" 
+BYTE "|   ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####    |" ; 12
+BYTE "|      ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####       |" ; 11
+BYTE "|   ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####    |"
+BYTE "|      ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####       |" 
+BYTE "|   ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####    |"
+BYTE "|      ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####       |" 
+BYTE "|   ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####    |"
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "+------------------------------------------------------------------------------+"
+BYTE "                                                                                " 
+BYTE 0
+
+gameLayoutddd LABEL BYTE
+BYTE "+------------------------------------------------------------------------------+"
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "+------------------------------------------------------------------------------+"
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
@@ -293,7 +335,7 @@ ErasePaddle PROC
 	mov di, ax ; setup location 
 
 	mov dl, ' ' ; setup char
-	mov cx, 6 ; counter
+	mov cx, 10 ; counter
 	mov	ax, 0B800h ; screen loc
 	mov	es, ax ; screen seg
 	mov bp, 0
@@ -334,7 +376,7 @@ MovePaddle PROC
 	mov di, ax ; setup location 
 
 	mov dl, 0DCh ; setup char
-	mov cx, 6 ; counter
+	mov cx, 10 ; counter
 	mov	ax, 0B800h ; screen loc
 	mov	es, ax ; screen seg
 	mov bp, 0
@@ -353,7 +395,7 @@ onePaddleChar:
 MovePaddle ENDP
 
 SpawnBricks PROC
-pushf
+	pushf
     push dx
 	push ax
     push di
@@ -361,8 +403,8 @@ pushf
     push si
 
 
-	mov dh, bricky
-	mov dl, brickx
+	mov dh, brickY
+	mov dl, brickX
     mov si, 0
 
     jmp cond
@@ -391,8 +433,8 @@ onePaddleChar:
 	add bp, 2
 	loop onePaddleChar
 
-    mov dh, bricky
-    mov dl, brickx
+    mov dh, brickY
+    mov dl, brickX
     mov ax, 6
     mul si
     add dl, al
@@ -409,7 +451,115 @@ cond:
 	ret
 SpawnBricks ENDP
 
+RefreshBricksGrid PROC 
+	pushf
+	mov dl, brickChar
+	mov ax, 0B800h ; screen start
+	mov es, ax
+	mov ax, 0
+	; level by level.. check if they are not 0, display them..
+	; 12 11 12 11 12 11 12
+	mov si, 1
+	mov bx, OFFSET bricksScores
+	mov di, 800
 
+bricksLevelSeven:
+	add di, 8
+	mov cx, 12
+drawBrickLevelSeven:
+	cmp [bx + si], ax
+	je skipBrickLevelSeven
+	mov es:[di], dl
+	mov es:[di + 2], dl
+	mov es:[di + 4], dl
+	mov es:[di + 6], dl
+	mov es:[di + 8], dl
+skipBrickLevelSeven:
+	add di, 12
+	add si, 1
+	loop drawBrickLevelSeven
+
+	mov di, 960
+bricksLevelSix:
+	add di, 14
+	mov cx, 11
+drawBrickLevelSix:
+	mov es:[di], dl
+	mov es:[di + 2], dl
+	mov es:[di + 4], dl
+	mov es:[di + 6], dl
+	mov es:[di + 8], dl
+	add di, 12 
+	loop drawBrickLevelSix
+
+	mov di, 1120
+bricksLevelFive:
+	add di, 8
+	mov cx, 12
+drawBrickLevelFive:
+	mov es:[di], dl
+	mov es:[di + 2], dl
+	mov es:[di + 4], dl
+	mov es:[di + 6], dl
+	mov es:[di + 8], dl
+	add di, 12 
+	loop drawBrickLevelFive
+
+	mov di, 1280
+bricksLevelFour:
+	add di, 14
+	mov cx, 11
+drawBrickLevelFour:
+	mov es:[di], dl
+	mov es:[di + 2], dl
+	mov es:[di + 4], dl
+	mov es:[di + 6], dl
+	mov es:[di + 8], dl
+	add di, 12 
+	loop drawBrickLevelFour
+
+	mov di, 1440
+bricksLevelThree:
+	add di, 8
+	mov cx, 12
+drawBrickLevelThree:
+	mov es:[di], dl
+	mov es:[di + 2], dl
+	mov es:[di + 4], dl
+	mov es:[di + 6], dl
+	mov es:[di + 8], dl
+	add di, 12 
+	loop drawBrickLevelThree 
+
+	mov di, 1600
+bricksLevelTwo:
+	add di, 14
+	mov cx, 11
+drawBrickLevelTwo:
+	mov es:[di], dl
+	mov es:[di + 2], dl
+	mov es:[di + 4], dl
+	mov es:[di + 6], dl
+	mov es:[di + 8], dl
+	add di, 12 
+	loop drawBrickLevelTwo
+
+	mov di, 1760
+bricksLevelOne:
+	add di, 8
+	mov cx, 12
+drawBrickLevelOne:
+	mov es:[di], dl
+	mov es:[di + 2], dl
+	mov es:[di + 4], dl
+	mov es:[di + 6], dl
+	mov es:[di + 8], dl
+	add di, 12 
+	loop drawBrickLevelOne
+
+	popf 
+	ret
+RefreshBricksGrid ENDP
 
 SetupScreen PROC 
 	; dx - picture offset
@@ -451,7 +601,7 @@ input:
 	int 21h
 	call ErasePaddle
     cmp al, 'q'
-    je over
+    je gameOverUA
 	cmp al, 'a'
 	je paddleLeft 
 	cmp al, 'd' 
@@ -460,12 +610,14 @@ input:
 paddleRight:
 	inc paddleX
 	call MovePaddle
-	jmp input 
+	; jmp input 
+	jmp finishUserAction
 paddleLeft:
 	dec paddleX
 	call MovePaddle
-	jmp input 
-over:
+	; jmp input 
+	jmp finishUserAction
+gameOverUA:
     mov GameOver, 1
 finishUserAction:
 	popf
@@ -478,11 +630,12 @@ GameLoop PROC
 	push ax
 
 
-    call SpawnBricks
+    ; call SpawnBricks
 	jmp	cond
   top:
     call CheckAlarms
     call UserAction
+	call RefreshBricksGrid
   cond:
     cmp	GameOver, 0
     je	top
