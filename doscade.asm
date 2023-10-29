@@ -30,10 +30,7 @@ paddleChar BYTE 0DCh
 brickChar BYTE 0DCh
 
 bricksScores LABEL BYTE 
-BYTE 0
-BYTE 0
-BYTE 1
-BYTE 9 Dup(0)
+BYTE 12 Dup(2)
 BYTE 11 Dup(2)
 BYTE 12 Dup(2)
 BYTE 11 Dup(1)
@@ -42,7 +39,7 @@ BYTE 11 Dup(1)
 BYTE 12 Dup(1)
 
 
-gameLayout LABEL BYTE
+gameLayoutBricks LABEL BYTE
 BYTE "+------------------------------------------------------------------------------+"
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
@@ -69,7 +66,7 @@ BYTE "+-------------------------------------------------------------------------
 BYTE "                                                                                " 
 BYTE 0
 
-gameLayoutddd LABEL BYTE
+gameLayout LABEL BYTE
 BYTE "+------------------------------------------------------------------------------+"
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
@@ -459,7 +456,7 @@ RefreshBricksGrid PROC
 	mov ax, 0
 	; level by level.. check if they are not 0, display them..
 	; 12 11 12 11 12 11 12
-	mov si, 1
+	mov si, 0
 	mov bx, OFFSET bricksScores
 	mov di, 800
 
@@ -467,7 +464,8 @@ bricksLevelSeven:
 	add di, 8
 	mov cx, 12
 drawBrickLevelSeven:
-	cmp [bx + si], ax
+	mov ah, [bx + si]
+	cmp ah, 0
 	je skipBrickLevelSeven
 	mov es:[di], dl
 	mov es:[di + 2], dl
@@ -484,11 +482,16 @@ bricksLevelSix:
 	add di, 14
 	mov cx, 11
 drawBrickLevelSix:
+	mov ah, [bx + si]
+	cmp ah, 0
+	je skipBrickLevelSix
 	mov es:[di], dl
 	mov es:[di + 2], dl
 	mov es:[di + 4], dl
 	mov es:[di + 6], dl
 	mov es:[di + 8], dl
+skipBrickLevelSix:
+	add si, 1
 	add di, 12 
 	loop drawBrickLevelSix
 
@@ -497,11 +500,16 @@ bricksLevelFive:
 	add di, 8
 	mov cx, 12
 drawBrickLevelFive:
+	mov ah, [bx + si]
+	cmp ah, 0
+	je skipBricksLevelFive
 	mov es:[di], dl
 	mov es:[di + 2], dl
 	mov es:[di + 4], dl
 	mov es:[di + 6], dl
 	mov es:[di + 8], dl
+skipBricksLevelFive:
+	add si, 1
 	add di, 12 
 	loop drawBrickLevelFive
 
@@ -510,37 +518,53 @@ bricksLevelFour:
 	add di, 14
 	mov cx, 11
 drawBrickLevelFour:
+	mov ah, [bx + si]
+	cmp ah, 0
+	je skipBrickLevelFour
 	mov es:[di], dl
 	mov es:[di + 2], dl
 	mov es:[di + 4], dl
 	mov es:[di + 6], dl
 	mov es:[di + 8], dl
+skipBrickLevelFour:
+	add si, 1
 	add di, 12 
 	loop drawBrickLevelFour
-
+	
 	mov di, 1440
 bricksLevelThree:
 	add di, 8
 	mov cx, 12
 drawBrickLevelThree:
+	mov ah, [bx + si]
+	cmp ah, 0
+	je skipBrickLevelThree
 	mov es:[di], dl
 	mov es:[di + 2], dl
 	mov es:[di + 4], dl
 	mov es:[di + 6], dl
 	mov es:[di + 8], dl
+skipBrickLevelThree:
+	add si, 1
 	add di, 12 
 	loop drawBrickLevelThree 
+
 
 	mov di, 1600
 bricksLevelTwo:
 	add di, 14
 	mov cx, 11
 drawBrickLevelTwo:
+	mov ah, [bx + si]
+	cmp ah, 0
+	je skipBrickLevelTwo
 	mov es:[di], dl
 	mov es:[di + 2], dl
 	mov es:[di + 4], dl
 	mov es:[di + 6], dl
 	mov es:[di + 8], dl
+skipBrickLevelTwo:
+	add si, 1
 	add di, 12 
 	loop drawBrickLevelTwo
 
@@ -549,11 +573,16 @@ bricksLevelOne:
 	add di, 8
 	mov cx, 12
 drawBrickLevelOne:
+	mov ah, [bx + si]
+	cmp ah, 0
+	je skipBrickLevelOne
 	mov es:[di], dl
 	mov es:[di + 2], dl
 	mov es:[di + 4], dl
 	mov es:[di + 6], dl
 	mov es:[di + 8], dl
+skipBrickLevelOne:
+	add si, 1
 	add di, 12 
 	loop drawBrickLevelOne
 
