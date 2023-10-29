@@ -3,10 +3,12 @@ include cs240.inc
 DOSEXIT = 4C00h
 DOS = 21h
 TIMER_HANDLER = 1ch
+SPEED = 5
 
 .8086
 
 .data
+
 
 Alarms	LABEL	WORD
 	WORD	20 DUP(0)
@@ -16,8 +18,14 @@ GameOver BYTE 0
 
 CursorPos WORD 0000h, 0000h
 
-ballX BYTE 20
-ballY BYTE 38
+ballCurrentX BYTE 40
+ballCurrentY BYTE 19
+
+velocityX BYTE 1
+velocityY BYTE 1
+
+ballNextX BYTE 40
+ballNextY BYTE 18
 
 paddleX BYTE 37
 paddleY BYTE 20
@@ -25,18 +33,18 @@ paddleY BYTE 20
 brickY BYTE 4
 brickX BYTE 2
 
-paddleChar BYTE 0DCh
+paddleChar BYTE 0DFh
 
 brickChar BYTE 0DCh
 
 bricksScores LABEL BYTE 
-BYTE 12 Dup(2)
-BYTE 11 Dup(2)
-BYTE 12 Dup(2)
-BYTE 11 Dup(1)
-BYTE 12 Dup(1)
-BYTE 11 Dup(1)
-BYTE 12 Dup(1)
+BYTE 12 Dup(2) ; y = 5 start at 4 to 8, 10 to 14
+BYTE 11 Dup(2) ; y = 6 
+BYTE 12 Dup(2) ; y = 7
+BYTE 11 Dup(1) ; y = 8
+BYTE 12 Dup(1) ; y = 9
+BYTE 11 Dup(1) ; y = 10
+BYTE 12 Dup(1) ; y = 11
 
 
 gameLayoutBricks LABEL BYTE
@@ -89,7 +97,7 @@ BYTE "|                                                                         
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
-
+BYTE "|                                                                              |" 
 BYTE "+------------------------------------------------------------------------------+"
 BYTE "                                                                                " 
 BYTE 0
@@ -309,6 +317,61 @@ notick:
 	ret
 CheckAlarms ENDP
 
+RegBallAlarm PROC
+	; call dumpregs
+	pushf 
+	push ax
+	push dx
+	mov ax, SPEED
+	mov dx, offset BallMovement
+	call RegisterAlarm
+	pop dx
+	pop ax
+	popf
+	ret
+RegBallAlarm ENDP
+
+BallMovement PROC
+	pushf
+	push ax
+
+	; call EraseBall
+	
+	mov ah, velocityX
+	mov al, velocityY
+
+	add ballCurrentX, ah
+	add ballCurrentY, al
+
+	cmp ballCurrentY, 4
+	jg checklow
+	mov ballCurrentY, 4
+	neg al	
+	mov velocityY, al
+checklow:
+	cmp ballCurrentY, 22
+	jl checkxleft
+	mov ballCurrentY, 22
+	neg al	
+	mov velocityY, al
+checkxleft:
+	cmp ballCurrentX, 1
+	jg checkxright
+	mov ballCurrentX, 1
+	neg ah	
+	mov velocityX, ah
+checkxright:
+	cmp ballCurrentX, 78
+	jl done
+	mov ballCurrentX, 78
+	neg ah
+	mov velocityX, ah
+done:
+	call SpawnBall
+	pop ax
+	popf
+	ret
+BallMovement ENDP
 ErasePaddle PROC 
 	pushf
 	push dx
@@ -372,7 +435,7 @@ MovePaddle PROC
 	add ax, dx
 	mov di, ax ; setup location 
 
-	mov dl, 0DCh ; setup char
+	mov dl, paddleChar ; setup char
 	mov cx, 10 ; counter
 	mov	ax, 0B800h ; screen loc
 	mov	es, ax ; screen seg
@@ -391,62 +454,6 @@ onePaddleChar:
 	ret
 MovePaddle ENDP
 
-SpawnBricks PROC
-	pushf
-    push dx
-	push ax
-    push di
-    push cx
-    push si
-
-
-	mov dh, brickY
-	mov dl, brickX
-    mov si, 0
-
-    jmp cond
-
-top:
-	mov di, ax
-	mov ax, 0
-	mov al, dh 
-	mov bx, 160
-	push dx
-	mul bx
-	pop dx
-	and dx, 11111111b
-	add ax, dx
-	add ax, dx
-	mov di, ax ; setup location 
-
-	mov dl, 0DCh ; setup char
-	mov cx, 6 ; counter
-	mov	ax, 0B800h ; screen loc
-	mov	es, ax ; screen seg
-	mov bp, 0
-    inc si
-onePaddleChar:
-	mov es:[di + bp], dl 
-	add bp, 2
-	loop onePaddleChar
-
-    mov dh, brickY
-    mov dl, brickX
-    mov ax, 6
-    mul si
-    add dl, al
-cond:
-    cmp si, 5
-    jb top
-
-    pop si
-    pop cx
-    pop di
-	pop ax
-	pop dx
-	popf
-	ret
-SpawnBricks ENDP
 
 RefreshBricksGrid PROC 
 	pushf
@@ -590,6 +597,44 @@ skipBrickLevelOne:
 	ret
 RefreshBricksGrid ENDP
 
+
+SpawnBall PROC 
+	pushf
+    push dx
+	push ax
+    push di
+    push cx
+
+	mov dh, ballCurrentY
+	mov dl, ballCurrentX
+	mov di, ax
+	mov ax, 0
+	mov al, dh 
+	mov bx, 160
+	push dx
+	mul bx
+	pop dx
+	and dx, 11111111b
+	add ax, dx
+	add ax, dx
+	mov di, ax ; setup location 
+
+
+	mov ax, 0B800h
+	mov es, ax 
+	mov dl, 'o'
+	mov bp, 0
+	
+	mov es:[di], dl
+
+    pop cx
+    pop di
+	pop ax
+	pop dx
+	popf 
+	ret
+SpawnBall ENDP
+
 SetupScreen PROC 
 	; dx - picture offset
 	pushf
@@ -624,8 +669,12 @@ UserAction PROC
 	pushf
 
 	call MovePaddle
-
 input:
+	mov ax, 0
+	mov ah, 0Bh
+	int DOS
+	cmp al, 0
+	je finishUserAction
 	mov ah, 07h 
 	int 21h
 	call ErasePaddle
@@ -662,9 +711,11 @@ GameLoop PROC
     ; call SpawnBricks
 	jmp	cond
   top:
+	
     call CheckAlarms
     call UserAction
 	call RefreshBricksGrid
+	call BallMovement
   cond:
     cmp	GameOver, 0
     je	top
@@ -686,7 +737,9 @@ main PROC
 
 
 	mov dx, OFFSET gameLayout
+	call RegBallAlarm
 	call SetupScreen
+	call SpawnBall
 	call GameLoop
     
     call UnHookInterrupt
