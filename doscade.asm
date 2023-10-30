@@ -3,12 +3,13 @@ include cs240.inc
 DOSEXIT = 4C00h
 DOS = 21h
 TIMER_HANDLER = 1ch
-SPEED = 5
+SPEED = 3
 
 .8086
 
 .data
 
+Life BYTE 3
 
 Alarms	LABEL	WORD
 	WORD	20 DUP(0)
@@ -16,19 +17,27 @@ HandlerCount = ($ - Alarms) / 4
 
 GameOver BYTE 0
 
+PlayScore WORD 0
+
+GameOn BYTE 0 ; 0 -> pause, 1 -> resume
+
 CursorPos WORD 0000h, 0000h
 
 ballCurrentX BYTE 40
-ballCurrentY BYTE 19
+ballCurrentY BYTE 21
 
-velocityX BYTE 1
-velocityY BYTE 1
+ballOnBrick BYTE 0
+
+velocityX BYTE 0
+velocityY BYTE 0
+
+paddleMovement BYTE 0 ; 0 - no move; 1 -> right; 2 -> left
 
 ballNextX BYTE 40
 ballNextY BYTE 18
 
 paddleX BYTE 37
-paddleY BYTE 20
+paddleY BYTE 22
 
 brickY BYTE 4
 brickX BYTE 2
@@ -39,11 +48,12 @@ brickChar BYTE 0DCh
 
 bricksScores LABEL BYTE 
 BYTE 12 Dup(2) ; y = 5 start at 4 to 8, 10 to 14
-BYTE 11 Dup(2) ; y = 6 
+BYTE 11 Dup(2) ; y = 6 start at 7 to 11, 13 to 17
 BYTE 12 Dup(2) ; y = 7
 BYTE 11 Dup(1) ; y = 8
 BYTE 12 Dup(1) ; y = 9
 BYTE 11 Dup(1) ; y = 10
+brickScoresONE LABEL BYTE
 BYTE 12 Dup(1) ; y = 11
 
 
@@ -76,8 +86,8 @@ BYTE 0
 
 gameLayout LABEL BYTE
 BYTE "+------------------------------------------------------------------------------+"
-BYTE "|                                                                              |" 
-BYTE "|                                                                              |" 
+BYTE "|  Lives:                                                                      |" 
+BYTE "|  Score:                                                                      |" 
 BYTE "+------------------------------------------------------------------------------+"
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
@@ -102,11 +112,123 @@ BYTE "+-------------------------------------------------------------------------
 BYTE "                                                                                " 
 BYTE 0
 
+loserLayout LABEL BYTE
+BYTE "+------------------------------------------------------------------------------+"
+BYTE "|  Lives:                                                                      |" 
+BYTE "|  Score:                                                                      |" 
+BYTE "+------------------------------------------------------------------------------+"
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|    Y88b    /                         888       ,88~-_   ,d88~~\ 888~~        |" 
+BYTE "|     Y88b  /   e88~-_  888  888       888      d888   \  8888    888___       |" 
+BYTE "|      Y88b/   d888   i 888  888       888     88888    | `Y88b   888          |" 
+BYTE "|       Y8Y    8888   | 888  888       888     88888    |  `Y88b, 888          |" 
+BYTE "|        Y     Y888   ' 888  888       888      Y888   /     8888 888          |" 
+BYTE "|       /       88_-~    88_-888       888____   `88_-~   \__88P' 888___       |" 
+
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "+------------------------------------------------------------------------------+"
+BYTE "                                                                                " 
+BYTE 0
+
+WinnerLayout LABEL BYTE
+BYTE "+------------------------------------------------------------------------------+"
+BYTE "|  Lives:                                                                      |" 
+BYTE "|  Score:                                                                      |" 
+BYTE "+------------------------------------------------------------------------------+"
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|      Y88b    /                         Y88b         / 888 888b    |          |" 
+BYTE "|       Y88b  /   e88~-_  888  888        Y88b       /  888 |Y88b   |          |" 
+BYTE "|        Y88b/   d888   i 888  888         Y88b  e  /   888 | Y88b  |          |" 
+BYTE "|         Y8Y    8888   | 888  888          Y88bd8b/    888 |  Y88b |          |" 
+BYTE "|          Y     Y888   ' 888  888           Y88Y8Y     888 |   Y88b|          |" 
+BYTE "|         /       88_-~    88_-888            Y  Y      888 |    Y888          |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "+------------------------------------------------------------------------------+"
+BYTE "                                                                                " 
+BYTE 0
+
 .code
 
 OldTimerHandler DWORD	00000000h
 
 Tick WORD 0
+
+DisplayScore PROC 
+	pushf
+	push ax
+	push bx
+	push cx
+	push dx 
+	push si 
+	push di 
+	push bp 
+	push es 
+
+	mov ax, 0B800h 
+	mov es, ax 
+
+	; lives 
+	mov di, 180
+	mov bl, Life
+	cmp bx, 3
+	and bx, 0Fh
+	je lifeThree
+	cmp bx, 2
+	je lifeTwo
+	cmp bx, 1
+	je lifeOne
+lifeThree:
+	mov dl, '3'
+	mov es:[di], dl
+	jmp scoring
+lifeTwo:
+	mov dl, '2'
+	mov es:[di], dl
+	jmp scoring
+lifeOne:
+	mov dl, '1'
+	mov es:[di], dl
+	jmp scoring
+	
+scoring:
+	add di, 160
+	mov dx, PlayScore
+	add dx, 48
+	mov es:[di], dl
+
+
+
+
+	pop es 
+	pop bp 
+	pop di 
+	pop si 
+	pop dx 
+	pop cx 
+	pop bx 
+	pop ax
+	popf
+	ret 
+DisplayScore ENDP
+
 
 CursorOff PROC ;turns the cursor off
   pushf
@@ -322,8 +444,9 @@ RegBallAlarm PROC
 	pushf 
 	push ax
 	push dx
+	call BallMovement
 	mov ax, SPEED
-	mov dx, offset BallMovement
+	mov dx, offset RegBallAlarm
 	call RegisterAlarm
 	pop dx
 	pop ax
@@ -334,11 +457,16 @@ RegBallAlarm ENDP
 BallMovement PROC
 	pushf
 	push ax
+	push dx ; paddleX
 
-	; call EraseBall
-	
-	mov ah, velocityX
-	mov al, velocityY
+	call EraseBall
+	cmp GameOn, 0
+	je done
+
+	mov dl, paddleX; dl = paddleX
+
+	mov ah, velocityX ; ah = velocity X
+	mov al, velocityY ; al = velocity Y
 
 	add ballCurrentX, ah
 	add ballCurrentY, al
@@ -349,9 +477,14 @@ BallMovement PROC
 	neg al	
 	mov velocityY, al
 checklow:
-	cmp ballCurrentY, 22
+	cmp ballCurrentY, 21
 	jl checkxleft
-	mov ballCurrentY, 22
+	mov ballCurrentY, 21
+	cmp ballCurrentX, dl
+	jb over
+	add dl, 10
+	cmp ballCurrentX, dl
+	ja over
 	neg al	
 	mov velocityY, al
 checkxleft:
@@ -366,12 +499,290 @@ checkxright:
 	mov ballCurrentX, 78
 	neg ah
 	mov velocityX, ah
+	jmp done
+over:
+	call EraseBall
+	dec Life
+	cmp Life, 0
+	je gamelose
+	mov GameOn, 0
+	mov BallCurrentX, 40
+	mov ballCurrentY, 21
+	jmp done
+gamelose:
+	mov GameOver, 1
 done:
+	call BallMovementBrick
+	cmp ballOnBrick, 0 ; no collision
+	je skipCollision
+
+
+		mov ax, PlayScore
+		add ax, 100
+		mov PlayScore, ax
+		mov al, velocityY
+		neg al
+	mov velocityY, al
+	mov ballOnBrick, 0
+	cmp PlayScore, 500
+		jae win
+	jmp skipCollision
+win:
+	mov GameOver, 2
+skipCollision:
 	call SpawnBall
+	pop dx
 	pop ax
 	popf
 	ret
 BallMovement ENDP
+
+
+BallMovementBrick1 PROC
+	pushf
+	push ax
+	push bx
+	push cx
+	push dx 
+	push si 
+	push di 
+	push bp 
+	push es 
+
+	mov ah, ballCurrentY ; ah = Y
+	mov al, ballCurrentX ; al = X
+	mov si, 0 ; SI = index of array
+	
+	mov	ax, 0B800h
+	mov es, ax
+
+	mov cl, ah
+	mov ch, 0
+	mov bx, 0
+
+	addbx:
+		add bx, 160
+		loop addbx
+
+	mov cl, al
+	addbx1:
+		inc bx
+		inc bx
+		loop addbx1
+
+	mov dl, ' '
+	cmp es:[bx], dl
+	je nobrick
+	mov BallonBrick, 1
+	mov bx, offset bricksScores
+
+	sub ah, 5 ; ah = Y
+	cmp ah, 0
+	je bricks12
+	cmp ah, 2
+	je bricks12
+	cmp ah, 4
+	je bricks12
+
+	subtr:
+		inc si
+		sub al, 6
+		cmp al, 7
+		jg subtr
+		dec si
+
+		mov cl, ah
+		mov ch, 0
+		mov di, 12
+	here:
+		add bx, di
+		call switchDI
+		loop here
+		jmp outofhere
+
+	bricks12:
+		inc si
+		sub al, 6
+		cmp al, 4
+		jg bricks12
+		dec si
+
+		mov cl, ah
+		mov ch, 0
+		cmp cl, 0
+		je outofhere
+		mov di, 11
+	here1:
+		add bx, di
+		call switchDI
+		loop here1
+
+
+	outofhere:
+		add bx, si
+		mov dl, [bx]
+		dec dl
+		mov [bx], dl
+		jmp done
+	nobrick:
+		mov ballOnBrick, 0
+	done:
+	; mov dx, OFFSET brickScoresONE
+	; mov cx, 12
+	; call DumpMem
+	pop es 
+	pop bp 
+	pop di 
+	pop si 
+	pop dx 
+	pop cx 
+	pop bx 
+	pop ax
+	popf
+ret
+BallMovementBrick1 ENDP
+
+
+SwitchDI PROC 
+	pushf
+	cmp di, 12
+	je switchTo11
+switchTo12:
+	mov di, 12 
+	jmp Switched 
+switchTo11:
+	mov di, 11
+	jmp Switched
+Switched:
+	popf 
+	ret 
+SwitchDI ENDP
+
+
+BallMovementBrick PROC 
+	pushf
+	push ax
+	push bx
+	push cx
+	push dx 
+	push si 
+	push di 
+	push bp 
+	push es 
+
+	mov ah, ballCurrentY
+	mov al, ballCurrentX
+	mov si, 0
+
+	; range of brick levels
+	cmp ah, 5
+	jb brickNoTouch 
+	cmp ah, 11
+	ja brickNoTouch
+
+	; check here which kind of level it interacted with: 
+	cmp al, 4
+	jb brickNoTouch
+	cmp al, 74
+	ja brickNoTouch
+	sub al, 4
+	
+	cmp ah, 5
+	pushf 
+	mov bp, 0
+	popf
+	je brickWith12
+	cmp ah, 6
+	pushf 
+	mov bp, 12
+	popf
+	je brickWith11 
+	cmp ah, 7
+	pushf 
+	mov bp, 23
+	popf
+	je brickWith12
+	cmp ah, 8
+	pushf 
+	mov bp, 35
+	popf
+	je brickWith11 
+	cmp ah, 9
+	pushf 
+	mov bp, 46
+	popf
+	je brickWith12
+	cmp ah, 10
+	pushf 
+	mov bp, 58
+	popf
+	je brickWith11 
+	cmp ah, 11
+	pushf 
+	mov bp, 69
+	popf
+	je brickWith12
+	jmp brickNoTouch
+	
+; calculate which brick???? how????
+
+brickWith12: 
+	cmp al, 5
+	jb brickDecrease
+	je brickNoTouch
+	cmp si, 11
+	je brickNoTouch
+	sub al, 4
+	inc si
+	jmp brickWith12
+
+
+
+brickWith11:
+	sub al, 3
+brickWith11Loop:
+	cmp al, 5
+	jb brickDecrease
+	je brickNoTouch
+	cmp si, 10
+	je brickNoTouch
+	sub al, 4
+	inc si
+	jmp brickWith11Loop
+
+	
+brickDecrease:
+	mov bx, OFFSET bricksScores
+	mov cx, 0
+	add bx, bp
+	add bx, si
+	sub bx, 2
+	cmp [bx], cx ; if in table it's 0 or less than 0 
+	jle brickNoTouch
+	mov cx, 1
+	sub [bx], cx
+	mov ballOnBrick, 1
+	inc PlayScore
+brickNoTouch:
+	; mov dx, OFFSET brickScoreLEVELONE
+	; mov cx, 12 
+	; call DumpMem
+	; call NewLine
+	; mov ah, 07h 
+	; int 21h
+	pop es 
+	pop bp 
+	pop di 
+	pop si 
+	pop dx 
+	pop cx 
+	pop bx 
+	pop ax
+	popf
+	ret 
+BallMovementBrick ENDP
+
+
 ErasePaddle PROC 
 	pushf
 	push dx
@@ -436,6 +847,7 @@ MovePaddle PROC
 	mov di, ax ; setup location 
 
 	mov dl, paddleChar ; setup char
+	mov dh, ' '
 	mov cx, 10 ; counter
 	mov	ax, 0B800h ; screen loc
 	mov	es, ax ; screen seg
@@ -457,6 +869,23 @@ MovePaddle ENDP
 
 RefreshBricksGrid PROC 
 	pushf
+	push ax
+	push bx
+	push cx
+	push dx 
+	push si 
+	push di 
+	push bp 
+	push es 
+
+	push cx 
+	push dx 
+	mov dx, OFFSET bricksScores
+	mov cx, 100
+	; call DumpMem
+	pop dx 
+	pop cx
+
 	mov dl, brickChar
 	mov ax, 0B800h ; screen start
 	mov es, ax
@@ -466,20 +895,30 @@ RefreshBricksGrid PROC
 	mov si, 0
 	mov bx, OFFSET bricksScores
 	mov di, 800
-
+	
 bricksLevelSeven:
 	add di, 8
 	mov cx, 12
 drawBrickLevelSeven:
 	mov ah, [bx + si]
 	cmp ah, 0
-	je skipBrickLevelSeven
+	jle skipBrickLevelSeven
 	mov es:[di], dl
 	mov es:[di + 2], dl
 	mov es:[di + 4], dl
 	mov es:[di + 6], dl
 	mov es:[di + 8], dl
+	jmp continueBrickLevelSeven
 skipBrickLevelSeven:
+	push dx 
+	mov dh, ' '
+	mov es:[di], dh
+	mov es:[di + 2], dh
+	mov es:[di + 4], dh
+	mov es:[di + 6], dh
+	mov es:[di + 8], dh
+	pop dx
+continueBrickLevelSeven:
 	add di, 12
 	add si, 1
 	loop drawBrickLevelSeven
@@ -491,16 +930,27 @@ bricksLevelSix:
 drawBrickLevelSix:
 	mov ah, [bx + si]
 	cmp ah, 0
-	je skipBrickLevelSix
+	jle skipBrickLevelSix
 	mov es:[di], dl
 	mov es:[di + 2], dl
 	mov es:[di + 4], dl
 	mov es:[di + 6], dl
 	mov es:[di + 8], dl
+	jmp continueBrickLevelSix
 skipBrickLevelSix:
+	push dx 
+	mov dh, ' '
+	mov es:[di], dh
+	mov es:[di + 2], dh
+	mov es:[di + 4], dh
+	mov es:[di + 6], dh
+	mov es:[di + 8], dh
+	pop dx
+continueBrickLevelSix:
 	add si, 1
 	add di, 12 
 	loop drawBrickLevelSix
+
 
 	mov di, 1120
 bricksLevelFive:
@@ -509,16 +959,27 @@ bricksLevelFive:
 drawBrickLevelFive:
 	mov ah, [bx + si]
 	cmp ah, 0
-	je skipBricksLevelFive
+	jle skipBricksLevelFive
 	mov es:[di], dl
 	mov es:[di + 2], dl
 	mov es:[di + 4], dl
 	mov es:[di + 6], dl
 	mov es:[di + 8], dl
+	jmp continueBrickLevelFive
 skipBricksLevelFive:
+	push dx 
+	mov dh, ' '
+	mov es:[di], dh
+	mov es:[di + 2], dh
+	mov es:[di + 4], dh
+	mov es:[di + 6], dh
+	mov es:[di + 8], dh
+	pop dx
+continueBrickLevelFive:
 	add si, 1
 	add di, 12 
 	loop drawBrickLevelFive
+
 
 	mov di, 1280
 bricksLevelFour:
@@ -527,17 +988,29 @@ bricksLevelFour:
 drawBrickLevelFour:
 	mov ah, [bx + si]
 	cmp ah, 0
-	je skipBrickLevelFour
+	jle skipBrickLevelFour
 	mov es:[di], dl
 	mov es:[di + 2], dl
 	mov es:[di + 4], dl
 	mov es:[di + 6], dl
 	mov es:[di + 8], dl
+	jmp continueBrickLevelFour
 skipBrickLevelFour:
+	push dx 
+	mov dh, ' '
+	mov es:[di], dh
+	mov es:[di + 2], dh
+	mov es:[di + 4], dh
+	mov es:[di + 6], dh
+	mov es:[di + 8], dh
+	pop dx
+continueBrickLevelFour:
 	add si, 1
 	add di, 12 
 	loop drawBrickLevelFour
 	
+
+
 	mov di, 1440
 bricksLevelThree:
 	add di, 8
@@ -545,13 +1018,23 @@ bricksLevelThree:
 drawBrickLevelThree:
 	mov ah, [bx + si]
 	cmp ah, 0
-	je skipBrickLevelThree
+	jle skipBrickLevelThree
 	mov es:[di], dl
 	mov es:[di + 2], dl
 	mov es:[di + 4], dl
 	mov es:[di + 6], dl
 	mov es:[di + 8], dl
+	jmp continueBrickLevelThree
 skipBrickLevelThree:
+	push dx 
+	mov dh, ' '
+	mov es:[di], dh
+	mov es:[di + 2], dh
+	mov es:[di + 4], dh
+	mov es:[di + 6], dh
+	mov es:[di + 8], dh
+	pop dx
+continueBrickLevelThree:
 	add si, 1
 	add di, 12 
 	loop drawBrickLevelThree 
@@ -564,16 +1047,29 @@ bricksLevelTwo:
 drawBrickLevelTwo:
 	mov ah, [bx + si]
 	cmp ah, 0
-	je skipBrickLevelTwo
+	jle skipBrickLevelTwo
 	mov es:[di], dl
 	mov es:[di + 2], dl
 	mov es:[di + 4], dl
 	mov es:[di + 6], dl
 	mov es:[di + 8], dl
+	jmp continueBrickLevelTwo
 skipBrickLevelTwo:
+	push dx 
+	mov dh, ' '
+	mov es:[di], dh
+	mov es:[di + 2], dh
+	mov es:[di + 4], dh
+	mov es:[di + 6], dh
+	mov es:[di + 8], dh
+	pop dx
+continueBrickLevelTwo:
 	add si, 1
 	add di, 12 
 	loop drawBrickLevelTwo
+
+
+
 
 	mov di, 1760
 bricksLevelOne:
@@ -582,17 +1078,35 @@ bricksLevelOne:
 drawBrickLevelOne:
 	mov ah, [bx + si]
 	cmp ah, 0
-	je skipBrickLevelOne
+	jle skipBrickLevelOne
 	mov es:[di], dl
 	mov es:[di + 2], dl
 	mov es:[di + 4], dl
 	mov es:[di + 6], dl
 	mov es:[di + 8], dl
+	jmp continueBrickLevelOne
 skipBrickLevelOne:
+	push dx 
+	mov dh, ' '
+	mov es:[di], dh
+	mov es:[di + 2], dh
+	mov es:[di + 4], dh
+	mov es:[di + 6], dh
+	mov es:[di + 8], dh
+	pop dx
+continueBrickLevelOne:
 	add si, 1
 	add di, 12 
 	loop drawBrickLevelOne
 
+	pop es 
+	pop bp 
+	pop di 
+	pop si 
+	pop dx 
+	pop cx 
+	pop bx 
+	pop ax
 	popf 
 	ret
 RefreshBricksGrid ENDP
@@ -635,6 +1149,39 @@ SpawnBall PROC
 	ret
 SpawnBall ENDP
 
+
+EraseBall PROC 
+	pushf
+    push dx
+	push ax
+    push di
+    push cx
+	mov dh, ballCurrentY
+	mov dl, ballCurrentX
+	mov di, ax
+	mov ax, 0
+	mov al, dh 
+	mov bx, 160
+	push dx
+	mul bx
+	pop dx
+	and dx, 11111111b
+	add ax, dx
+	add ax, dx
+	mov di, ax ; setup location 
+	mov ax, 0B800h
+	mov es, ax 
+	mov dl, ' '
+	mov bp, 0
+	mov es:[di], dl
+    pop cx
+    pop di
+	pop ax
+	pop dx
+	popf 
+	ret
+EraseBall ENDP
+
 SetupScreen PROC 
 	; dx - picture offset
 	pushf
@@ -665,10 +1212,112 @@ loop pixel
 SetupScreen ENDP
 
 
+LoserScreen PROC 
+	; dx - picture offset
+	pushf
+	push di
+	mov dx, OFFSET loserLayout
+
+	mov di, 0
+	mov bp, dx
+	mov cx, 1920
+	mov ax, 0
+; screen is 80 * 24
+pixel:
+	mov	ax, 0B800h
+	mov	es, ax
+
+	mov dl, ds:[bp]
+	cmp dl, ' '
+	je empty 
+	mov bl, 0111b
+	mov es:[di + 1], bl
+empty:
+	mov es:[di], dl
+	add di, 2
+	inc bp
+loop pixel
+	pop di
+	popf
+	ret
+LoserScreen ENDP
+
+
+WinnerScreen PROC 
+	; dx - picture offset
+	pushf
+	push di
+	mov dx, OFFSET WinnerLayout
+
+	mov di, 0
+	mov bp, dx
+	mov cx, 1920
+	mov ax, 0
+; screen is 80 * 24
+pixel:
+	mov	ax, 0B800h
+	mov	es, ax
+
+	mov dl, ds:[bp]
+	cmp dl, ' '
+	je empty 
+	mov bl, 0111b
+	mov es:[di + 1], bl
+empty:
+	mov es:[di], dl
+	add di, 2
+	inc bp
+loop pixel
+	pop di
+	popf
+	ret
+WinnerScreen ENDP
+
+EraseScreen PROC 
+	; dx - picture offset
+	pushf
+	push ax
+	push bx
+	push cx
+	push dx 
+	push si 
+	push di 
+	push bp 
+	push es 
+	mov dx, OFFSET gameLayout
+
+	mov di, 0
+	mov bp, dx
+	mov cx, 1920
+	mov ax, 0
+; screen is 80 * 24
+pixel:
+	mov	ax, 0B800h
+	mov	es, ax
+
+	mov dl, ds:[bp]
+	mov es:[di], dl
+	add di, 2
+	inc bp
+	loop pixel
+	pop es 
+	pop bp 
+	pop di 
+	pop si 
+	pop dx 
+	pop cx 
+	pop bx 
+	pop ax
+	popf
+	ret
+EraseScreen ENDP
+
+
 UserAction PROC 
 	pushf
 
 	call MovePaddle
+	mov paddleMovement, 0
 input:
 	mov ax, 0
 	mov ah, 0Bh
@@ -684,19 +1333,40 @@ input:
 	je paddleLeft 
 	cmp al, 'd' 
 	je paddleRight
+	cmp al, ' '
+	je space
 	jmp finishUserAction
 paddleRight:
+	cmp paddleX, 69
+	je skipright
 	inc paddleX
+skipright:
 	call MovePaddle
+	mov paddleMovement, 1
 	; jmp input 
 	jmp finishUserAction
 paddleLeft:
+	cmp paddleX, 1
+	je skipleft
 	dec paddleX
+skipleft:
 	call MovePaddle
+	mov paddleMovement, 2
 	; jmp input 
 	jmp finishUserAction
 gameOverUA:
     mov GameOver, 1
+	jmp finishUserAction
+
+space:
+	cmp GameOn, 0
+	je change
+	dec GameOn
+	jmp finishUserAction
+change:
+	inc GameOn
+	mov velocityX, -1
+	mov velocityY, -1
 finishUserAction:
 	popf
 	ret
@@ -706,20 +1376,29 @@ UserAction ENDP
 GameLoop PROC
 	pushf
 	push ax
-
-
-    ; call SpawnBricks
 	jmp	cond
   top:
-	
+	call DisplayScore
     call CheckAlarms
     call UserAction
 	call RefreshBricksGrid
-	call BallMovement
   cond:
     cmp	GameOver, 0
     je	top
   done:
+	cmp GameOver, 1 ; you lose
+	je lose
+
+	cmp GameOver, 2 ; you win
+	je win
+
+lose:
+	call LoserScreen
+	jmp finish
+win:
+	call WinnerScreen
+	jmp finish
+finish:
 
     pop ax
     popf
@@ -735,9 +1414,10 @@ main PROC
 
     call HookTimerInterrupt
 
+	call RegBallAlarm
+
 
 	mov dx, OFFSET gameLayout
-	call RegBallAlarm
 	call SetupScreen
 	call SpawnBall
 	call GameLoop
