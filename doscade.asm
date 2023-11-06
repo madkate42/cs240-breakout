@@ -1,9 +1,12 @@
+TITLE KAKASHKA
 include cs240.inc
 	
 DOSEXIT = 4C00h
 DOS = 21h
 TIMER_HANDLER = 1ch
 SPEED = 3
+
+SPEAKER_PORT = 61h
 
 .8086
 
@@ -47,13 +50,12 @@ paddleChar BYTE 0DFh
 brickChar BYTE 0DCh
 
 bricksScores LABEL BYTE 
-BYTE 12 Dup(2) ; y = 5 start at 4 to 8, 10 to 14
-BYTE 11 Dup(2) ; y = 6 start at 7 to 11, 13 to 17
-BYTE 12 Dup(2) ; y = 7
+BYTE 12 Dup(1) ; y = 5 start at 4 to 8, 10 to 14
+BYTE 11 Dup(1) ; y = 6 start at 7 to 11, 13 to 17
+BYTE 12 Dup(1) ; y = 7
 BYTE 11 Dup(1) ; y = 8
 BYTE 12 Dup(1) ; y = 9
 BYTE 11 Dup(1) ; y = 10
-brickScoresONE LABEL BYTE
 BYTE 12 Dup(1) ; y = 11
 
 
@@ -171,6 +173,40 @@ OldTimerHandler DWORD	00000000h
 
 Tick WORD 0
 
+
+; MUSIC 
+
+; SpeakerOn PROC
+; 	pushf
+; 	push	ax
+
+; 	in	al, SPEAKER_PORT		; Read the speaker register
+; 	or	al, 03h				; Set the two low bits high
+; 	out	SPEAKER_PORT, al		; Write the speaker register
+
+; 	pop	ax
+; 	popf
+; 	ret
+; SpeakerOn ENDP
+
+; SpeakerOff PROC
+
+; 	pushf
+; 	push	ax
+
+; 	in	al, SPEAKER_PORT		; Read the speaker register
+; 	and	al, 0FCh			; Clear the two low bits high
+; 	out	SPEAKER_PORT, al		; Write the speaker register
+
+; 	pop	ax
+; 	popf
+; 	ret
+; SpeakerOff ENDP
+
+
+
+;;;;;;
+
 DisplayScore PROC 
 	pushf
 	push ax
@@ -213,10 +249,6 @@ scoring:
 	mov dx, PlayScore
 	add dx, 48
 	mov es:[di], dl
-
-
-
-
 	pop es 
 	pop bp 
 	pop di 
@@ -239,7 +271,6 @@ CursorOff PROC ;turns the cursor off
   mov ah, 03h
   int 10h
   mov bx, offset CursorPos
-  ;mov [bx], cx
   mov [bx], dx
   mov ah, 01h
   mov cx, 2607h
@@ -463,6 +494,8 @@ BallMovement PROC
 	cmp GameOn, 0
 	je done
 
+	; call BallMovementBrick 
+
 	mov dl, paddleX; dl = paddleX
 
 	mov ah, velocityX ; ah = velocity X
@@ -516,21 +549,23 @@ done:
 	cmp ballOnBrick, 0 ; no collision
 	je skipCollision
 
-
-		mov ax, PlayScore
-		add ax, 100
-		mov PlayScore, ax
-		mov al, velocityY
-		neg al
+	mov ax, PlayScore
+	add ax, 100
+	mov PlayScore, ax
+	mov al, velocityY
+	neg al
 	mov velocityY, al
 	mov ballOnBrick, 0
 	cmp PlayScore, 500
-		jae win
+	jae win
 	jmp skipCollision
 win:
-	mov GameOver, 2
+	mov GameOver, 0
 skipCollision:
 	call SpawnBall
+	; mov dx, OFFSET ballCurrentX
+	; mov cx, 2 
+	; call DumpMem 
 	pop dx
 	pop ax
 	popf
@@ -549,6 +584,7 @@ BallMovementBrick1 PROC
 	push bp 
 	push es 
 
+	
 	mov ah, ballCurrentY ; ah = Y
 	mov al, ballCurrentX ; al = X
 	mov si, 0 ; SI = index of array
@@ -627,9 +663,6 @@ BallMovementBrick1 PROC
 	nobrick:
 		mov ballOnBrick, 0
 	done:
-	; mov dx, OFFSET brickScoresONE
-	; mov cx, 12
-	; call DumpMem
 	pop es 
 	pop bp 
 	pop di 
@@ -670,12 +703,13 @@ BallMovementBrick PROC
 	push bp 
 	push es 
 
-	mov ah, ballCurrentY
-	mov al, ballCurrentX
-	mov si, 0
+	mov ballOnBrick, 0
+	mov ah, ballCurrentY ; 0B
+	mov al, ballCurrentX ; 1E
+	mov si, 0 
 
 	; range of brick levels
-	cmp ah, 5
+	cmp ah, 5 
 	jb brickNoTouch 
 	cmp ah, 11
 	ja brickNoTouch
@@ -685,7 +719,7 @@ BallMovementBrick PROC
 	jb brickNoTouch
 	cmp al, 74
 	ja brickNoTouch
-	sub al, 4
+	sub al, 4 ; for easier calculations, now it's 0 - 70
 	
 	cmp ah, 5
 	pushf 
@@ -694,32 +728,32 @@ BallMovementBrick PROC
 	je brickWith12
 	cmp ah, 6
 	pushf 
-	mov bp, 12
+	add bp, 12
 	popf
 	je brickWith11 
 	cmp ah, 7
 	pushf 
-	mov bp, 23
+	add bp, 11
 	popf
 	je brickWith12
 	cmp ah, 8
 	pushf 
-	mov bp, 35
+	add bp, 12
 	popf
 	je brickWith11 
 	cmp ah, 9
 	pushf 
-	mov bp, 46
+	add bp, 11
 	popf
 	je brickWith12
 	cmp ah, 10
 	pushf 
-	mov bp, 58
+	add bp, 12
 	popf
 	je brickWith11 
 	cmp ah, 11
 	pushf 
-	mov bp, 69
+	add bp, 11
 	popf
 	je brickWith12
 	jmp brickNoTouch
@@ -730,12 +764,11 @@ brickWith12:
 	cmp al, 5
 	jb brickDecrease
 	je brickNoTouch
-	cmp si, 11
+	cmp si, 12 ; 11 to 12
 	je brickNoTouch
-	sub al, 4
+	sub al, 6 ;; CHANGED HERE
 	inc si
 	jmp brickWith12
-
 
 
 brickWith11:
@@ -744,25 +777,32 @@ brickWith11Loop:
 	cmp al, 5
 	jb brickDecrease
 	je brickNoTouch
-	cmp si, 10
+	cmp si, 11 ;  10 to 11
 	je brickNoTouch
-	sub al, 4
+	sub al, 6 ; CHANGED HERE
 	inc si
 	jmp brickWith11Loop
 
 	
 brickDecrease:
+
+
 	mov bx, OFFSET bricksScores
-	mov cx, 0
+	mov cl, 0
 	add bx, bp
 	add bx, si
-	sub bx, 2
-	cmp [bx], cx ; if in table it's 0 or less than 0 
-	jle brickNoTouch
-	mov cx, 1
-	sub [bx], cx
+	; sub bx, 2
+	cmp [bx], cl ; if in table it's 0 or less than 0 
+	je brickNoTouch
+	mov cl, 1
+	sub [bx], cl
 	mov ballOnBrick, 1
 	inc PlayScore
+
+	; mov dx, OFFSET brickScoresONE
+	; mov cx, 12
+	; call DumpMem
+
 brickNoTouch:
 	; mov dx, OFFSET brickScoreLEVELONE
 	; mov cx, 12 
@@ -770,6 +810,10 @@ brickNoTouch:
 	; call NewLine
 	; mov ah, 07h 
 	; int 21h
+
+
+
+
 	pop es 
 	pop bp 
 	pop di 
@@ -1133,7 +1177,6 @@ SpawnBall PROC
 	add ax, dx
 	mov di, ax ; setup location 
 
-
 	mov ax, 0B800h
 	mov es, ax 
 	mov dl, 'o'
@@ -1359,6 +1402,7 @@ gameOverUA:
 	jmp finishUserAction
 
 space:
+	
 	cmp GameOn, 0
 	je change
 	dec GameOn
@@ -1382,6 +1426,7 @@ GameLoop PROC
     call CheckAlarms
     call UserAction
 	call RefreshBricksGrid
+	call SpawnBall
   cond:
     cmp	GameOver, 0
     je	top
