@@ -7,10 +7,21 @@ TIMER_HANDLER = 1ch
 SPEED = 3
 
 SPEAKER_PORT = 61h
+READY_TIMER		= 0B6h
+TIMER_DATA_PORT		= 42h
+TIMER_CONTROL_PORT	= 43h
 
 .8086
 
 .data
+
+;; MUSIC
+NOTE_TICKS = 3
+MusicScore WORD 5000, 4000, 3000, 2000, 0
+MusicIndex WORD 0 ; pointer to current note in MusicScore
+NOTE_GAP_TICKS = 5
+
+;;
 
 Life BYTE 3
 
@@ -58,33 +69,6 @@ BYTE 12 Dup(1) ; y = 9
 BYTE 11 Dup(1) ; y = 10
 BYTE 12 Dup(1) ; y = 11
 
-
-gameLayoutBricks LABEL BYTE
-BYTE "+------------------------------------------------------------------------------+"
-BYTE "|                                                                              |" 
-BYTE "|                                                                              |" 
-BYTE "+------------------------------------------------------------------------------+"
-BYTE "|                                                                              |" 
-BYTE "|   ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####    |" ; 12
-BYTE "|      ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####       |" ; 11
-BYTE "|   ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####    |"
-BYTE "|      ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####       |" 
-BYTE "|   ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####    |"
-BYTE "|      ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####       |" 
-BYTE "|   ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####    |"
-BYTE "|                                                                              |" 
-BYTE "|                                                                              |" 
-BYTE "|                                                                              |" 
-BYTE "|                                                                              |" 
-BYTE "|                                                                              |" 
-BYTE "|                                                                              |" 
-BYTE "|                                                                              |" 
-BYTE "|                                                                              |" 
-BYTE "|                                                                              |" 
-BYTE "|                                                                              |" 
-BYTE "+------------------------------------------------------------------------------+"
-BYTE "                                                                                " 
-BYTE 0
 
 gameLayout LABEL BYTE
 BYTE "+------------------------------------------------------------------------------+"
@@ -176,34 +160,146 @@ Tick WORD 0
 
 ; MUSIC 
 
-; SpeakerOn PROC
-; 	pushf
-; 	push	ax
+SpeakerOn PROC
+	pushf
+	push	ax
 
-; 	in	al, SPEAKER_PORT		; Read the speaker register
-; 	or	al, 03h				; Set the two low bits high
-; 	out	SPEAKER_PORT, al		; Write the speaker register
+	in	al, SPEAKER_PORT		; Read the speaker register
+	or	al, 03h				; Set the two low bits high
+	out	SPEAKER_PORT, al		; Write the speaker register
 
-; 	pop	ax
-; 	popf
-; 	ret
-; SpeakerOn ENDP
+	pop	ax
+	popf
+	ret
+SpeakerOn ENDP
 
-; SpeakerOff PROC
+SpeakerOff PROC
+	pushf
+	push	ax
 
-; 	pushf
-; 	push	ax
+	in	al, SPEAKER_PORT		; Read the speaker register
+	and	al, 0FCh			; Clear the two low bits high
+	out	SPEAKER_PORT, al		; Write the speaker register
 
-; 	in	al, SPEAKER_PORT		; Read the speaker register
-; 	and	al, 0FCh			; Clear the two low bits high
-; 	out	SPEAKER_PORT, al		; Write the speaker register
+	pop	ax
+	popf
+	ret
+SpeakerOff ENDP
 
-; 	pop	ax
-; 	popf
-; 	ret
-; SpeakerOff ENDP
+SetupMusic PROC
+	;; DX = OFFSET of location of score
+	pushf
+	push dx
+	mov dx, OFFSET MusicScore
+	mov	MusicIndex, dx
+	pop dx
+	popf
+	ret 
+SetupMusic ENDP
 
 
+PlayFrequency PROC
+	;; Frequency is found in DX
+	pushf
+	push ax
+	push bx
+	push cx
+	push dx 
+	push si 
+	push di 
+	push bp 
+	push es 
+	
+	cmp	dx, 0
+	je	rest
+
+	; call	NoteFrequencyToTimerCount
+
+	mov	al, READY_TIMER			; Get the timer ready
+	out	TIMER_CONTROL_PORT, al
+
+	mov	al, dl
+	out	TIMER_DATA_PORT, al		; Send the count low byte
+	
+	mov	al, dh
+	out	TIMER_DATA_PORT, al		; Send the count high byte
+	
+	call	SpeakerOn
+
+done:	
+	pop es 
+	pop bp 
+	pop di 
+	pop si 
+	pop dx 
+	pop cx 
+	pop bx 
+	pop ax
+	popf
+	ret
+rest:
+	call	SpeakerOff
+	jmp	done
+PlayFrequency ENDP
+
+PlayNextNote PROC
+	pushf
+	push ax
+	push bx
+	push cx
+	push dx 
+	push si 
+	push di 
+	push bp 
+	push es 
+	
+	mov	si, MusicIndex
+	cmp	WORD PTR [si], 0
+	jne	cont
+
+	;; Repeat tune
+	
+	mov	si, OFFSET MusicScore
+	mov	MusicIndex, si
+
+cont:	
+	; where should frequency be ??? in DX 
+	mov dx, [si]
+	call	PlayFrequency
+ 	mov	ax, NOTE_TICKS
+ 	mov	dx, OFFSET StopNote
+	call	RegisterAlarm
+done:	
+	add MusicIndex, 2
+	pop es 
+	pop bp 
+	pop di 
+	pop si 
+	pop dx 
+	pop cx 
+	pop bx 
+	pop ax
+	popf
+	ret
+PlayNextNote ENDP
+
+StopNote PROC
+	pushf
+	push	ax
+	push	dx
+
+	call	SpeakerOff
+	
+ 	mov	ax, NOTE_GAP_TICKS
+ 	mov	dx, OFFSET PlayNextNote
+	call	RegisterAlarm
+
+done:	
+	pop	dx
+	pop	ax
+	popf
+	ret
+StopNote ENDP
 
 ;;;;;;
 
@@ -424,8 +520,6 @@ used:
 cond:	
 	cmp	cx, HandlerCount
 	jl	top
-	
-	
 done:	
 	pop	cx
 	pop	bx
@@ -1461,6 +1555,10 @@ main PROC
 
 	call RegBallAlarm
 
+	call SetupMusic
+	mov	ax, 3
+ 	mov	dx, OFFSET PlayNextNote
+	call	RegisterAlarm
 
 	mov dx, OFFSET gameLayout
 	call SetupScreen
@@ -1468,6 +1566,7 @@ main PROC
 	call GameLoop
     
     call UnHookInterrupt
+	call SpeakerOff
 
 	mov	ax, DOSEXIT	; Signal DOS that we are done
 	int	DOS
