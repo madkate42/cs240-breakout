@@ -17,7 +17,7 @@ TIMER_CONTROL_PORT	= 43h
 .data
 
 ;; MUSIC
-NOTE_TICKS = 4
+NOTE_TICKS = 2
 NOTE_GAP_TICKS = 2
 
 
@@ -270,7 +270,7 @@ PlayNextNote PROC
 	push di 
 	push bp 
 	push es 
-	
+
 	mov	si, MusicIndex
 	cmp	WORD PTR [si], 0
 	jne	cont
@@ -373,7 +373,7 @@ lifeOne:
 	
 scoring:
 	add di, 160
-	mov dh, ' 'q
+	mov dh, ' '
 
 	mov dx, PlayScore
 ; if score is less than 10
@@ -709,6 +709,13 @@ done:
 	call BallMovementBrick
 	cmp ballOnBrick, 0 ; no collision
 	je skipCollision
+
+	; Temporarily play game sound here
+	push dx  ; ;; ; ; 
+	mov dx, 1500 ; ;; ; ; 
+	call PlayFrequency; ;; ; ; 
+	pop dx; ;; ; ; 
+	; sound ^^^ when pop
 
 	mov ax, PlayScore
 	add ax, 1
