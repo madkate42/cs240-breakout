@@ -373,9 +373,25 @@ lifeOne:
 	
 scoring:
 	add di, 160
+	mov dh, ' 'q
+
 	mov dx, PlayScore
+; if score is less than 10
+	cmp dx, 10
+	jae twodigitScore
 	add dx, 48
 	mov es:[di], dl
+	jmp scoringDone
+
+twodigitScore:
+	; need to get the lower digit and the upper digit...
+	mov dx, PlayScore
+	call SplitIntoDigits
+	add dh, 48
+	add dl, 48
+	mov es:[di], dh 
+	mov es:[di + 2], dl
+scoringDone:
 	pop es 
 	pop bp 
 	pop di 
@@ -387,6 +403,26 @@ scoring:
 	popf
 	ret 
 DisplayScore ENDP
+
+SplitIntoDigits PROC 
+	; Number to split in dx 
+	pushf
+	push cx 
+	mov cx, 0
+countTens:
+	cmp dx, 10
+	jb lessThanTen
+	inc cx
+	sub dx, 10
+	jmp countTens
+lessThanTen:
+	mov dh, cl 
+	
+
+	pop cx
+	popf
+	ret
+SplitIntoDigits ENDP
 
 
 CursorOff PROC ;turns the cursor off
@@ -675,7 +711,7 @@ done:
 	je skipCollision
 
 	mov ax, PlayScore
-	add ax, 100
+	add ax, 1
 	mov PlayScore, ax
 	mov al, velocityY
 	neg al
@@ -882,8 +918,6 @@ BallMovementBrick PROC
 	popf
 	je brickWith12
 	jmp brickNoTouch
-	
-; calculate which brick???? how????
 
 brickWith12: 
 	cmp al, 5
@@ -894,7 +928,6 @@ brickWith12:
 	sub al, 6 ;; CHANGED HERE
 	inc si
 	jmp brickWith12
-
 
 brickWith11:
 	sub al, 3
@@ -908,37 +941,17 @@ brickWith11Loop:
 	inc si
 	jmp brickWith11Loop
 
-	
 brickDecrease:
-
-
 	mov bx, OFFSET bricksScores
 	mov cl, 0
 	add bx, bp
 	add bx, si
-	; sub bx, 2
 	cmp [bx], cl ; if in table it's 0 or less than 0 
 	je brickNoTouch
 	mov cl, 1
 	sub [bx], cl
 	mov ballOnBrick, 1
-	inc PlayScore
-
-	; mov dx, OFFSET brickScoresONE
-	; mov cx, 12
-	; call DumpMem
-
 brickNoTouch:
-	; mov dx, OFFSET brickScoreLEVELONE
-	; mov cx, 12 
-	; call DumpMem
-	; call NewLine
-	; mov ah, 07h 
-	; int 21h
-
-
-
-
 	pop es 
 	pop bp 
 	pop di 
@@ -1055,6 +1068,9 @@ RefreshBricksGrid PROC
 	pop dx 
 	pop cx
 
+	mov bh, 0100b ; second level color
+	mov bl, 0111b ; white color (first level)
+	
 	mov dl, brickChar
 	mov ax, 0B800h ; screen start
 	mov es, ax
@@ -1364,6 +1380,9 @@ SetupScreen PROC
 pixel:
 	mov	ax, 0B800h
 	mov	es, ax
+
+	mov bl, 0111b ; color everything to white
+	mov es:[di + 1], bl 
 
 	mov dl, ds:[bp]
 	cmp dl, ' '
