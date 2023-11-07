@@ -11,17 +11,15 @@ READY_TIMER		= 0B6h
 TIMER_DATA_PORT		= 42h
 TIMER_CONTROL_PORT	= 43h
 
+
 .8086
 
 .data
 
 ;; MUSIC
-NOTE_TICKS = 3
-MusicScore WORD 5000, 4000, 3000, 2000, 0
-MusicIndex WORD 0 ; pointer to current note in MusicScore
-NOTE_GAP_TICKS = 5
+NOTE_TICKS = 4
+NOTE_GAP_TICKS = 2
 
-;;
 
 Life BYTE 3
 
@@ -68,6 +66,7 @@ BYTE 11 Dup(1) ; y = 8
 BYTE 12 Dup(1) ; y = 9
 BYTE 11 Dup(1) ; y = 10
 BYTE 12 Dup(1) ; y = 11
+
 
 
 gameLayout LABEL BYTE
@@ -150,6 +149,25 @@ BYTE "|                                                                         
 BYTE "+------------------------------------------------------------------------------+"
 BYTE "                                                                                " 
 BYTE 0
+
+; MusicScore LABEL WORD 
+; WORD 1614, 2153 ; F#  C#
+; WORD 1614, 2153, 1614, 2153
+; WORD 1614, 2153, 1614, 2153, 1614, 2153
+; WORD 2420, 2711, 2153, 2153 ; B A C#
+; WORD 2711, 2420, 1810 ; A B E
+; WORD 1918, 0 ; D#
+; MusicScore WORD 1614, 2153, 1614, 2153, 1614, 2153, 2420, 2711, 2153, 2153, 2711, 2420, 1810, 1918, 0h
+; ; MusicScore WORD 1614
+; ; WORD 2153
+; ; WORD 0
+; MusicIndex WORD 0 ; pointer to current note in MusicScore
+;;
+MusicScore WORD 1614, 2153, 1614, 2153, 1614, 2153, 2420, 2711, 2153, 2153, 2711, 2420, 1810, 1918, 1810, 1614, 1918, 2420
+WORD 1614, 2420, 1614, 2420, 1614, 2420, 1614, 2560, 1614, 2560, 1521, 2560
+WORD 1614, 2032, 1614, 2032, 1810, 1614
+WORD 1810, 3233, 2032, 3233, 2153, 3233, 0
+MusicIndex WORD 0 ; pointer to current note in MusicScore
 
 .code
 
@@ -270,7 +288,8 @@ cont:
  	mov	dx, OFFSET StopNote
 	call	RegisterAlarm
 done:	
-	add MusicIndex, 2
+	add si, 2
+	mov MusicIndex, si
 	pop es 
 	pop bp 
 	pop di 
@@ -285,8 +304,14 @@ PlayNextNote ENDP
 
 StopNote PROC
 	pushf
-	push	ax
-	push	dx
+	push ax
+	push bx
+	push cx
+	push dx 
+	push si 
+	push di 
+	push bp 
+	push es 
 
 	call	SpeakerOff
 	
@@ -295,8 +320,14 @@ StopNote PROC
 	call	RegisterAlarm
 
 done:	
-	pop	dx
-	pop	ax
+	pop es 
+	pop bp 
+	pop di 
+	pop si 
+	pop dx 
+	pop cx 
+	pop bx 
+	pop ax
 	popf
 	ret
 StopNote ENDP
@@ -1236,6 +1267,7 @@ continueBrickLevelOne:
 	add si, 1
 	add di, 12 
 	loop drawBrickLevelOne
+
 
 	pop es 
 	pop bp 
