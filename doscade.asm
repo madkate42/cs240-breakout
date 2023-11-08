@@ -100,11 +100,11 @@ BYTE "+-------------------------------------------------------------------------
 BYTE "                                                                                " 
 BYTE 0
 
+
 loserLayout LABEL BYTE
 BYTE "+------------------------------------------------------------------------------+"
-BYTE "|  Lives:                                                                      |" 
-BYTE "|  Score:                                                                      |" 
-BYTE "+------------------------------------------------------------------------------+"
+BYTE "|                                                                              |"
+BYTE "|                                                                              |"
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
@@ -119,13 +119,14 @@ BYTE "|       /       88_-~    88_-888       888____   `88_-~   \__88P' 888___  
 
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
+BYTE "|                           Your Score:                                        |"
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
-BYTE "|                                                                              |" 
+BYTE "|                                                                              |"
+BYTE "|                                                                              |"
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
 BYTE "+------------------------------------------------------------------------------+"
-BYTE "                                                                                " 
 BYTE 0
 
 
@@ -159,9 +160,6 @@ BYTE 0
 
 WinnerLayout LABEL BYTE
 BYTE "+------------------------------------------------------------------------------+"
-BYTE "|  Lives:                                                                      |" 
-BYTE "|  Score:                                                                      |" 
-BYTE "+------------------------------------------------------------------------------+"
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
@@ -175,6 +173,9 @@ BYTE "|        Y88b/   d888   i 888  888         Y88b  e  /   888 | Y88b  |     
 BYTE "|         Y8Y    8888   | 888  888          Y88bd8b/    888 |  Y88b |          |" 
 BYTE "|          Y     Y888   ' 888  888           Y88Y8Y     888 |   Y88b|          |" 
 BYTE "|         /       88_-~    88_-888            Y  Y      888 |    Y888          |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                         Your score:                                          |" 
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
@@ -813,7 +814,7 @@ done:
 	neg al
 	mov velocityY, al
 	mov ballOnBrick, 0
-	cmp PlayScore, 81
+	cmp PlayScore, 69
 	jae win
 	jmp skipCollision
 win:
@@ -1506,13 +1507,26 @@ pixel:
 	mov dl, ds:[bp]
 	cmp dl, ' '
 	je empty 
-	mov bl, 0111b
+	mov bl, 0101b
 	mov es:[di + 1], bl
 empty:
 	mov es:[di], dl
 	add di, 2
 	inc bp
 loop pixel
+
+	; display score
+	mov dx, PlayScore
+	call SplitIntoDigits
+	add dh, 48
+	mov es:[2640], dh
+	add dl, 48
+	mov es:[2642], dl
+	mov dl, '0'
+	mov es:[2644], dl
+	mov es:[2646], dl
+
+
 	pop di
 	popf
 	ret
@@ -1524,7 +1538,7 @@ WinnerScreen PROC
 	pushf
 	push di
 	mov dx, OFFSET WinnerLayout
-
+	call SpeakerOff
 	mov di, 0
 	mov bp, dx
 	mov cx, 1920
@@ -1537,13 +1551,25 @@ pixel:
 	mov dl, ds:[bp]
 	cmp dl, ' '
 	je empty 
-	mov bl, 0111b
+	mov bl, 0101b
 	mov es:[di + 1], bl
 empty:
 	mov es:[di], dl
 	add di, 2
 	inc bp
 loop pixel
+
+	mov dx, PlayScore
+	call SplitIntoDigits
+	add dh, 48
+	mov es:[2640], dh
+	add dl, 48
+	mov es:[2642], dl
+	mov dl, '0'
+	mov es:[2644], dl
+	mov es:[2646], dl
+
+	call ReadChar
 	pop di
 	popf
 	ret
@@ -1712,7 +1738,6 @@ GameLoop PROC
 
 lose:
 	call LoserScreen
-	call DisplayScore ; make display loser score
 	call ReadChar
 	jmp finish
 win:
