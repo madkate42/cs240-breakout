@@ -1,0 +1,127 @@
+Microsoft (R) Macro Assembler Version 6.11		    11/07/23 17:43:54
+KAKASHKA						     Page 1 - 1
+
+
+				TITLE KAKASHKA
+				include cs240.inc
+			      C .NOLIST
+			      C .LIST
+			      C 
+					
+ = 4C00				DOSEXIT = 4C00h
+ = 0021				DOS = 21h
+ = 001C				TIMER_HANDLER = 1ch
+ = 0003				SPEED = 3
+				
+				
+				
+ = 0061				SPEAKER_PORT = 61h
+ = 00B6				READY_TIMER		= 0B6h
+ = 0042				TIMER_DATA_PORT		= 42h
+ = 0043				TIMER_CONTROL_PORT	= 43h
+				;; MUSIC
+ = 0004				NOTE_TICKS = 4
+ = 0002				NOTE_GAP_TICKS = 2
+				
+				
+				.8086
+ 0000				.code
+				
+				
+ 0000				main PROC
+ 0000  B8 ---- R			mov	ax, @data	; Setup the data segment
+ 0003  8E D8				mov	ds, ax
+ 0005  B4 00				MOV AH, 00h  ; interrupts to get system time        
+ 0007  CD 1A			   INT 1AH      ; CX:DX now hold number of clock ticks since midnight      
+				
+ 0009  8B C2			   mov  ax, dx
+ 000B  33 D2			   xor  dx, dx
+ 000D  B9 0003			   mov  cx, 3    
+ 0010  F7 F1			   div  cx       ; here dx contains the remainder of the division - from 0 to 9
+				
+ 0012  80 C2 30			   add  dl, '0'  ; to ascii from '0' to '9'
+ 0015  B4 02			   mov ah, 2h   ; call interrupt to display a value in DL
+ 0017  CD 21			   int 21h  
+				
+ 0019  B8 4C00				mov	ax, DOSEXIT	; Signal DOS that we are done
+ 001C  CD 21				int	DOS
+ 001E				main ENDP
+				END main
+Microsoft (R) Macro Assembler Version 6.11		    11/07/23 17:43:54
+KAKASHKA						     Symbols 2 - 1
+
+
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+DGROUP . . . . . . . . . . . . .	GROUP
+_DATA  . . . . . . . . . . . . .	16 Bit	 0000	  Word	  Public  'DATA'	
+STACK  . . . . . . . . . . . . .	16 Bit	 0200	  Para	  Stack	  'STACK'	 
+_TEXT  . . . . . . . . . . . . .	16 Bit	 001E	  Word	  Public  'CODE'	
+
+
+Procedures,  parameters and locals:
+
+                N a m e                 Type     Value    Attr
+
+DumpLongRegs . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+DumpMem  . . . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+DumpRegs . . . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+GetMseconds  . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+NewLine  . . . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+PrintVersion . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+Random32 . . . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+RandomRange  . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+Randomize  . . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+ReadChar . . . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+ReadHexByte  . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+ReadHexDigit . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+ReadHexDoubleWord  . . . . . . .	P Near	 0000	  Length= 0000 External C
+ReadHexWord  . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+ReadInt  . . . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+ReadLine . . . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+ReadUInt . . . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+SkipToEOL  . . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+Version  . . . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+WriteBit . . . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+WriteCSString  . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+WriteChar  . . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+WriteHexByte . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+WriteHexDigit  . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+WriteHexDoubleWord . . . . . . .	P Near	 0000	  Length= 0000 External C
+WriteHexWord . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+WriteInt . . . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+WriteString  . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+WriteUInt  . . . . . . . . . . .	P Near	 0000	  Length= 0000 External C
+main . . . . . . . . . . . . . .	P Near	 0000	  _TEXT	Length= 001E Public C
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 0000h	 
+@DataSize  . . . . . . . . . . .	Number	 0000h	 
+@Interface . . . . . . . . . . .	Number	 0001h	 
+@Model . . . . . . . . . . . . .	Number	 0002h	 
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 DGROUP
+@fardata?  . . . . . . . . . . .	Text   	 FAR_BSS
+@fardata . . . . . . . . . . . .	Text   	 FAR_DATA
+@stack . . . . . . . . . . . . .	Text   	 DGROUP
+DOSEXIT  . . . . . . . . . . . .	Number	 4C00h	 
+DOS  . . . . . . . . . . . . . .	Number	 0021h	 
+NOTE_GAP_TICKS . . . . . . . . .	Number	 0002h	 
+NOTE_TICKS . . . . . . . . . . .	Number	 0004h	 
+READY_TIMER  . . . . . . . . . .	Number	 00B6h	 
+SPEAKER_PORT . . . . . . . . . .	Number	 0061h	 
+SPEED  . . . . . . . . . . . . .	Number	 0003h	 
+TIMER_CONTROL_PORT . . . . . . .	Number	 0043h	 
+TIMER_DATA_PORT  . . . . . . . .	Number	 0042h	 
+TIMER_HANDLER  . . . . . . . . .	Number	 001Ch	 
+
+	   0 Warnings
+	   0 Errors

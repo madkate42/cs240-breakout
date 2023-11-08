@@ -65,13 +65,10 @@ paddleChar BYTE 0DFh
 brickChar BYTE 0DCh
 
 bricksScores LABEL BYTE 
-BYTE 12 Dup(1) ; y = 5 start at 4 to 8, 10 to 14
-BYTE 11 Dup(1) ; y = 6 start at 7 to 11, 13 to 17
-BYTE 12 Dup(1) ; y = 7
-BYTE 11 Dup(1) ; y = 8
+BYTE 12 Dup(2) ; y = 5 start at 4 to 8, 10 to 14
+BYTE 11 Dup(2) ; y = 7
 BYTE 12 Dup(1) ; y = 9
-BYTE 11 Dup(1) ; y = 10
-BYTE 12 Dup(1) ; y = 11
+BYTE 11 Dup(1) ; y = 11
 
 
 
@@ -369,40 +366,6 @@ done:
 	ret
 PlayNextNote ENDP
 
-
-
-; PlayNote PROC 
-; 	; Frequence of The note is in Dx 
-; 	pushf
-; 	push ax
-; 	push bx
-; 	push cx
-; 	push dx 
-; 	push si 
-; 	push di 
-; 	push bp 
-; 	push es 
-; 	call PlayFrequency
-;  	mov	ax, 2
-;  	mov	dx, OFFSET StopNoteAtOnce
-; 	call RegisterAlarm
-; 	pop es 
-; 	pop bp 
-; 	pop di 
-; 	pop si 
-; 	pop dx 
-; 	pop cx 
-; 	pop bx 
-; 	pop ax
-; 	popf
-; PlayNote ENDP 
-
-; StopNoteAtOnce PROC 
-; 	pushf
-; 	call	SpeakerOff
-; 	popf
-; 	ret
-; StopNoteAtOnce ENDP
 
 StopNote PROC
 	pushf
@@ -1023,36 +986,24 @@ BallMovementBrick PROC
 	mov bp, 0
 	popf
 	je brickWith12
-	cmp ah, 6
-	pushf 
-	add bp, 12
-	popf
-	je brickWith11 
+	
 	cmp ah, 7
 	pushf 
-	add bp, 11
-	popf
-	je brickWith12
-	cmp ah, 8
-	pushf 
 	add bp, 12
 	popf
-	je brickWith11 
+	je brickWith11
+
 	cmp ah, 9
 	pushf 
 	add bp, 11
 	popf
 	je brickWith12
-	cmp ah, 10
+
+	cmp ah, 11
 	pushf 
 	add bp, 12
 	popf
-	je brickWith11 
-	cmp ah, 11
-	pushf 
-	add bp, 11
-	popf
-	je brickWith12
+	je brickWith11
 	jmp brickNoTouch
 
 brickWith12: 
@@ -1244,39 +1195,39 @@ continueBrickLevelSeven:
 	add si, 1
 	loop drawBrickLevelSeven
 
-	mov di, 960
-bricksLevelSix:
-	add di, 14
-	mov cx, 11
-drawBrickLevelSix:
-	mov ah, [bx + si]
-	cmp ah, 0
-	jle skipBrickLevelSix
-	mov es:[di], dl
-	mov es:[di + 2], dl
-	mov es:[di + 4], dl
-	mov es:[di + 6], dl
-	mov es:[di + 8], dl
-	jmp continueBrickLevelSix
-skipBrickLevelSix:
-	push dx 
-	mov dh, ' '
-	mov es:[di], dh
-	mov es:[di + 2], dh
-	mov es:[di + 4], dh
-	mov es:[di + 6], dh
-	mov es:[di + 8], dh
-	pop dx
-continueBrickLevelSix:
-	add si, 1
-	add di, 12 
-	loop drawBrickLevelSix
+	; mov di, 960
+; bricksLevelSix:
+; 	add di, 14
+; 	mov cx, 11
+; drawBrickLevelSix:
+; 	mov ah, [bx + si]
+; 	cmp ah, 0
+; 	jle skipBrickLevelSix
+; 	mov es:[di], dl
+; 	mov es:[di + 2], dl
+; 	mov es:[di + 4], dl
+; 	mov es:[di + 6], dl
+; 	mov es:[di + 8], dl
+; 	jmp continueBrickLevelSix
+; skipBrickLevelSix:
+; 	push dx 
+; 	mov dh, ' '
+; 	mov es:[di], dh
+; 	mov es:[di + 2], dh
+; 	mov es:[di + 4], dh
+; 	mov es:[di + 6], dh
+; 	mov es:[di + 8], dh
+; 	pop dx
+; continueBrickLevelSix:
+; 	add si, 1
+; 	add di, 12 
+; 	loop drawBrickLevelSix
 
 
 	mov di, 1120
 bricksLevelFive:
-	add di, 8
-	mov cx, 12
+	add di, 14
+	mov cx, 11
 drawBrickLevelFive:
 	mov ah, [bx + si]
 	cmp ah, 0
@@ -1302,33 +1253,33 @@ continueBrickLevelFive:
 	loop drawBrickLevelFive
 
 
-	mov di, 1280
-bricksLevelFour:
-	add di, 14
-	mov cx, 11
-drawBrickLevelFour:
-	mov ah, [bx + si]
-	cmp ah, 0
-	jle skipBrickLevelFour
-	mov es:[di], dl
-	mov es:[di + 2], dl
-	mov es:[di + 4], dl
-	mov es:[di + 6], dl
-	mov es:[di + 8], dl
-	jmp continueBrickLevelFour
-skipBrickLevelFour:
-	push dx 
-	mov dh, ' '
-	mov es:[di], dh
-	mov es:[di + 2], dh
-	mov es:[di + 4], dh
-	mov es:[di + 6], dh
-	mov es:[di + 8], dh
-	pop dx
-continueBrickLevelFour:
-	add si, 1
-	add di, 12 
-	loop drawBrickLevelFour
+; 	mov di, 1280
+; bricksLevelFour:
+; 	add di, 14
+; 	mov cx, 11
+; drawBrickLevelFour:
+; 	mov ah, [bx + si]
+; 	cmp ah, 0
+; 	jle skipBrickLevelFour
+; 	mov es:[di], dl
+; 	mov es:[di + 2], dl
+; 	mov es:[di + 4], dl
+; 	mov es:[di + 6], dl
+; 	mov es:[di + 8], dl
+; 	jmp continueBrickLevelFour
+; skipBrickLevelFour:
+; 	push dx 
+; 	mov dh, ' '
+; 	mov es:[di], dh
+; 	mov es:[di + 2], dh
+; 	mov es:[di + 4], dh
+; 	mov es:[di + 6], dh
+; 	mov es:[di + 8], dh
+; 	pop dx
+; continueBrickLevelFour:
+; 	add si, 1
+; 	add di, 12 
+; 	loop drawBrickLevelFour
 	
 
 
@@ -1361,41 +1312,41 @@ continueBrickLevelThree:
 	loop drawBrickLevelThree 
 
 
-	mov di, 1600
-bricksLevelTwo:
-	add di, 14
-	mov cx, 11
-drawBrickLevelTwo:
-	mov ah, [bx + si]
-	cmp ah, 0
-	jle skipBrickLevelTwo
-	mov es:[di], dl
-	mov es:[di + 2], dl
-	mov es:[di + 4], dl
-	mov es:[di + 6], dl
-	mov es:[di + 8], dl
-	jmp continueBrickLevelTwo
-skipBrickLevelTwo:
-	push dx 
-	mov dh, ' '
-	mov es:[di], dh
-	mov es:[di + 2], dh
-	mov es:[di + 4], dh
-	mov es:[di + 6], dh
-	mov es:[di + 8], dh
-	pop dx
-continueBrickLevelTwo:
-	add si, 1
-	add di, 12 
-	loop drawBrickLevelTwo
+; 	mov di, 1600
+; bricksLevelTwo: 
+; 	add di, 14
+; 	mov cx, 11
+; drawBrickLevelTwo:
+; 	mov ah, [bx + si]
+; 	cmp ah, 0
+; 	jle skipBrickLevelTwo
+; 	mov es:[di], dl
+; 	mov es:[di + 2], dl
+; 	mov es:[di + 4], dl
+; 	mov es:[di + 6], dl
+; 	mov es:[di + 8], dl
+; 	jmp continueBrickLevelTwo
+; skipBrickLevelTwo:
+; 	push dx 
+; 	mov dh, ' '
+; 	mov es:[di], dh
+; 	mov es:[di + 2], dh
+; 	mov es:[di + 4], dh
+; 	mov es:[di + 6], dh
+; 	mov es:[di + 8], dh
+; 	pop dx
+; continueBrickLevelTwo:
+; 	add si, 1
+; 	add di, 12 
+; 	loop drawBrickLevelTwo
 
 
 
 
 	mov di, 1760
 bricksLevelOne:
-	add di, 8
-	mov cx, 12
+	add di, 14
+	mov cx, 11
 drawBrickLevelOne:
 	mov ah, [bx + si]
 	cmp ah, 0
