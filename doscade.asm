@@ -11,10 +11,16 @@ READY_TIMER		= 0B6h
 TIMER_DATA_PORT		= 42h
 TIMER_CONTROL_PORT	= 43h
 
+SYSTEM_TIME_INT = 1Ah
+SYSTEM_TIME = 00h
+
 
 .8086
 
 .data
+
+isMute BYTE 0
+StartMov BYTE 0
 
 ;; MUSIC
 NOTE_TICKS = 2
@@ -59,8 +65,8 @@ paddleChar BYTE 0DFh
 brickChar BYTE 0DCh
 
 bricksScores LABEL BYTE 
-BYTE 12 Dup(1) ; y = 5 start at 4 to 8, 10 to 14
-BYTE 11 Dup(1) ; y = 6 start at 7 to 11, 13 to 17
+BYTE 12 Dup(2) ; y = 5 start at 4 to 8, 10 to 14
+BYTE 11 Dup(2) ; y = 6 start at 7 to 11, 13 to 17
 BYTE 12 Dup(1) ; y = 7
 BYTE 11 Dup(1) ; y = 8
 BYTE 12 Dup(1) ; y = 9
@@ -122,6 +128,36 @@ BYTE "+-------------------------------------------------------------------------
 BYTE "                                                                                " 
 BYTE 0
 
+
+welcomeScreen LABEL BYTE
+BYTE "+------------------------------------------------------------------------------+"
+BYTE "|        __  __   ______  ______  ______       ______  __   __  _____          |" 
+BYTE "|       /\ \/ /  /\  __ \/\__  _\/\  ___\     /\  __ \/\  -.\ \/\  __-.        |"  
+BYTE "|       \ \  _ -.\ \  __ \/_/\ \/\ \  __\     \ \  __ \ \ \-.  \ \ \/\ \       |" 
+BYTE "|        \ \_\ \_\\ \_\ \_\ \ \_\ \ \_____\    \ \_\ \_\ \_\\ \_\ \____-       |" 
+BYTE "|         \/_/\/_/ \/_/\/_/  \/_/  \/_____/     \/_/\/_/\/_/ \/_/\/____/       |"  
+BYTE "|                                                                              |" 
+BYTE "|             ______  ______  __  ______  __  __  ______                       |" 
+BYTE "|            /\  ___\/\  == \/\ \/\  ___\/\ \_\ \/\  __ \                      |" 
+BYTE "|            \ \ \__ \ \  __<\ \ \ \___  \ \  __ \ \  __ \                     |" 
+BYTE "|             \ \_____\ \_\ \_\ \_\/\_____\ \_\ \_\ \_\ \_\                    |" 
+BYTE "|              \/_____/\/_/ /_/\/_/\/_____/\/_/\/_/\/_/\/_/                    |" 
+BYTE "|                                                                              |" 
+BYTE "|        ______  ______  ______  ______  __  __   ______  __  __  ______       |" 
+BYTE "|       /\  == \/\  == \/\  ___\/\  __ \/\ \/ /  /\  __ \/\ \/\ \/\__  _\      |" 
+BYTE "|       \ \  __<\ \  __<\ \  __\\ \  __ \ \  _ -.\ \ \/\ \ \ \_\ \/_/\ \/      |" 
+BYTE "|        \ \_____\ \_\ \_\ \_____\ \_\ \_\ \_\ \_\\ \_____\ \_____\ \ \_\      |" 
+BYTE "|         \/_____/\/_/ /_/\/_____/\/_/\/_/\/_/\/_/ \/_____/\/_____/  \/_/      |" 
+BYTE "|                                                                              |" 
+BYTE "|               left - A          Press Space          right - D               |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "+------------------------------------------------------------------------------+"
+BYTE "    Press 0 to play                                                             " 
+BYTE 0
+
+
 WinnerLayout LABEL BYTE
 BYTE "+------------------------------------------------------------------------------+"
 BYTE "|  Lives:                                                                      |" 
@@ -169,12 +205,37 @@ WORD 1614, 2032, 1614, 2032, 1810, 1614
 WORD 1810, 3233, 2032, 3233, 2153, 3233, 0
 MusicIndex WORD 0 ; pointer to current note in MusicScore
 
+SoundOff BYTE 0
+
 .code
 
 OldTimerHandler DWORD	00000000h
 
 Tick WORD 0
 
+
+RandomVelX PROC
+	pushf
+	push ax
+	push cx
+	push dx
+
+	mov ah, SYSTEM_TIME  ; interrupts to get system time        
+	int SYSTEM_TIME_INT      ; CX:DX = number of clock ticks since midnight      
+
+	mov  ax, dx ; ax = dx
+	xor  dx, dx ; dx = 0
+	mov  cx, 2  ; cx = mod = 3
+	div  cx       ; here dx = remainder of the division - from 0 to 3
+
+	mov velocityX, dl
+
+	pop dx
+	pop cx
+	pop ax
+	popf
+	ret
+RandomVelX ENDP
 
 ; MUSIC 
 
@@ -270,6 +331,7 @@ PlayNextNote PROC
 	push di 
 	push bp 
 	push es 
+	
 
 	mov	si, MusicIndex
 	cmp	WORD PTR [si], 0
@@ -283,7 +345,10 @@ PlayNextNote PROC
 cont:	
 	; where should frequency be ??? in DX 
 	mov dx, [si]
+	cmp isMute, 1
+	je skip
 	call	PlayFrequency
+	skip:
  	mov	ax, NOTE_TICKS
  	mov	dx, OFFSET StopNote
 	call	RegisterAlarm
@@ -301,6 +366,41 @@ done:
 	popf
 	ret
 PlayNextNote ENDP
+
+
+
+; PlayNote PROC 
+; 	; Frequence of The note is in Dx 
+; 	pushf
+; 	push ax
+; 	push bx
+; 	push cx
+; 	push dx 
+; 	push si 
+; 	push di 
+; 	push bp 
+; 	push es 
+; 	call PlayFrequency
+;  	mov	ax, 2
+;  	mov	dx, OFFSET StopNoteAtOnce
+; 	call RegisterAlarm
+; 	pop es 
+; 	pop bp 
+; 	pop di 
+; 	pop si 
+; 	pop dx 
+; 	pop cx 
+; 	pop bx 
+; 	pop ax
+; 	popf
+; PlayNote ENDP 
+
+; StopNoteAtOnce PROC 
+; 	pushf
+; 	call	SpeakerOff
+; 	popf
+; 	ret
+; StopNoteAtOnce ENDP
 
 StopNote PROC
 	pushf
@@ -381,6 +481,9 @@ scoring:
 	jae twodigitScore
 	add dx, 48
 	mov es:[di], dl
+	mov dl, '0'
+	mov es:[di + 2], dl 
+	mov es:[di + 4], dl
 	jmp scoringDone
 
 twodigitScore:
@@ -391,6 +494,9 @@ twodigitScore:
 	add dl, 48
 	mov es:[di], dh 
 	mov es:[di + 2], dl
+	mov dl, '0'
+	mov es:[di + 4], dl 
+	mov es:[di + 6], dl
 scoringDone:
 	pop es 
 	pop bp 
@@ -650,6 +756,7 @@ BallMovement PROC
 	pushf
 	push ax
 	push dx ; paddleX
+	push cx
 
 	call EraseBall
 	cmp GameOn, 0
@@ -665,11 +772,15 @@ BallMovement PROC
 	add ballCurrentX, ah
 	add ballCurrentY, al
 
+	cmp ballCurrentY, 22
+	je over
+
 	cmp ballCurrentY, 4
 	jg checklow
 	mov ballCurrentY, 4
 	neg al	
 	mov velocityY, al
+
 checklow:
 	cmp ballCurrentY, 21
 	jl checkxleft
@@ -681,6 +792,21 @@ checklow:
 	ja over
 	neg al	
 	mov velocityY, al
+
+	cmp paddleMovement, 1
+	je moveballright
+
+	cmp paddleMovement, 2
+	je moveballleft
+
+	jmp checkxleft
+moveballright:
+	inc ah
+	jmp changeVelX
+moveballleft:
+	dec ah
+changeVelX:
+	mov velocityX, ah
 checkxleft:
 	cmp ballCurrentX, 1
 	jg checkxright
@@ -702,6 +828,7 @@ over:
 	mov GameOn, 0
 	mov BallCurrentX, 40
 	mov ballCurrentY, 21
+	mov StartMov, 0
 	jmp done
 gamelose:
 	mov GameOver, 1
@@ -709,13 +836,6 @@ done:
 	call BallMovementBrick
 	cmp ballOnBrick, 0 ; no collision
 	je skipCollision
-
-	; Temporarily play game sound here
-	push dx  ; ;; ; ; 
-	mov dx, 1500 ; ;; ; ; 
-	call PlayFrequency; ;; ; ; 
-	pop dx; ;; ; ; 
-	; sound ^^^ when pop
 
 	mov ax, PlayScore
 	add ax, 1
@@ -731,9 +851,20 @@ win:
 	mov GameOver, 0
 skipCollision:
 	call SpawnBall
-	; mov dx, OFFSET ballCurrentX
-	; mov cx, 2 
-	; call DumpMem 
+	cmp velocityX, 2
+	jg upperbound
+	cmp velocityX, -2
+	jl lowerbound
+	jmp done2
+upperbound:
+	mov velocityX, 2
+	jmp done2
+lowerbound:
+	mov velocityX, -2
+done2:
+	
+	mov paddleMovement,0
+	pop cx
 	pop dx
 	pop ax
 	popf
@@ -1510,9 +1641,9 @@ EraseScreen ENDP
 
 UserAction PROC 
 	pushf
+	push ax
 
 	call MovePaddle
-	mov paddleMovement, 0
 input:
 	mov ax, 0
 	mov ah, 0Bh
@@ -1530,6 +1661,9 @@ input:
 	je paddleRight
 	cmp al, ' '
 	je space
+	cmp al, 'm'
+	je mute
+
 	jmp finishUserAction
 paddleRight:
 	cmp paddleX, 69
@@ -1544,9 +1678,9 @@ paddleLeft:
 	cmp paddleX, 1
 	je skipleft
 	dec paddleX
+	mov paddleMovement, 2
 skipleft:
 	call MovePaddle
-	mov paddleMovement, 2
 	; jmp input 
 	jmp finishUserAction
 gameOverUA:
@@ -1554,19 +1688,56 @@ gameOverUA:
 	jmp finishUserAction
 
 space:
-	
 	cmp GameOn, 0
 	je change
 	dec GameOn
 	jmp finishUserAction
+mute:
+	cmp isMute, 1
+	je unmute
+	inc isMute
+	jmp finishUserAction
+unmute:
+	dec isMute
+	jmp finishUserAction
 change:
 	inc GameOn
-	mov velocityX, -1
+	cmp StartMov, 0
+	je setupVelocity
+	jmp finishUserAction
+setupVelocity:
+	call RandomVelX
 	mov velocityY, -1
+	mov StartMov, 1
 finishUserAction:
 	popf
+	pop ax
 	ret
 UserAction ENDP
+
+WelcomeUser PROC 
+	pushf
+	push ax 
+
+	mov dx, OFFSET welcomeScreen
+	call SetupScreen
+inputWelcomeUser:
+	call CheckAlarms
+	mov ax, 0
+	mov ah, 0Bh
+	int DOS
+	cmp al, 0
+	je inputWelcomeUser
+	mov ah, 07h 
+	int 21h 
+	cmp al, ' '
+	je finishWelcomeUser
+	jmp inputWelcomeUser
+finishWelcomeUser:
+	pop ax
+	popf 
+	ret
+WelcomeUser ENDP
 
 
 GameLoop PROC
@@ -1602,8 +1773,6 @@ finish:
     ret
 GameLoop ENDP
 
-
-
 main PROC
 	mov	ax, @data	; Setup the data segment
 	mov	ds, ax
@@ -1617,6 +1786,10 @@ main PROC
 	mov	ax, 3
  	mov	dx, OFFSET PlayNextNote
 	call	RegisterAlarm
+
+	call WelcomeUser
+	; here wait
+	
 
 	mov dx, OFFSET gameLayout
 	call SetupScreen
