@@ -65,8 +65,8 @@ paddleChar BYTE 0DFh
 brickChar BYTE 0DCh
 
 bricksScores LABEL BYTE 
-BYTE 12 Dup(2) ; y = 5 start at 4 to 8, 10 to 14
-BYTE 11 Dup(2) ; y = 6 start at 7 to 11, 13 to 17
+BYTE 12 Dup(1) ; y = 5 start at 4 to 8, 10 to 14
+BYTE 11 Dup(1) ; y = 6 start at 7 to 11, 13 to 17
 BYTE 12 Dup(1) ; y = 7
 BYTE 11 Dup(1) ; y = 8
 BYTE 12 Dup(1) ; y = 9
@@ -110,6 +110,9 @@ BYTE "|  Score:                                                                 
 BYTE "+------------------------------------------------------------------------------+"
 BYTE "|                                                                              |" 
 BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
+BYTE "|                                                                              |" 
 BYTE "|    Y88b    /                         888       ,88~-_   ,d88~~\ 888~~        |" 
 BYTE "|     Y88b  /   e88~-_  888  888       888      d888   \  8888    888___       |" 
 BYTE "|      Y88b/   d888   i 888  888       888     88888    | `Y88b   888          |" 
@@ -151,10 +154,9 @@ BYTE "|         \/_____/\/_/ /_/\/_____/\/_/\/_/\/_/\/_/ \/_____/\/_____/  \/_/ 
 BYTE "|                                                                              |" 
 BYTE "|               left - A          Press Space          right - D               |" 
 BYTE "|                                                                              |" 
-BYTE "|                                                                              |" 
+BYTE "|                Mute - M                              Quit - Q                |" 
 BYTE "|                                                                              |" 
 BYTE "+------------------------------------------------------------------------------+"
-BYTE "    Press 0 to play                                                             " 
 BYTE 0
 
 
@@ -836,6 +838,117 @@ done:
 	call BallMovementBrick
 	cmp ballOnBrick, 0 ; no collision
 	je skipCollision
+	cmp isMute, 1
+	je here1
+	push dx  ; ;; ; ; 
+	mov dx, 1500 ; ;; ; ; 
+	call PlayFrequency; ;; ; ; 
+	pop dx; ;; ; ; 
+	here1:
+	inc PlayScore
+	mov al, velocityY
+	neg al
+	mov velocityY, al
+	mov ballOnBrick, 0
+	cmp PlayScore, 81
+	jae win
+	jmp skipCollision
+win:
+	mov GameOver, 2
+	jmp done2
+skipCollision:
+	call SpawnBall
+	cmp velocityX, 1
+	jg upperbound
+	cmp velocityX, -1
+	jl lowerbound
+	jmp done2
+upperbound:
+	mov velocityX, 1
+	jmp done2
+lowerbound:
+	mov velocityX, -1
+done2:
+	
+	mov paddleMovement,0
+	pop cx
+	pop dx
+	pop ax
+	popf
+	ret
+BallMovement ENDP
+
+
+BallMovement1 PROC
+	pushf
+	push ax
+	push dx ; paddleX
+
+	call EraseBall
+	cmp GameOn, 0
+	je done
+
+	; call BallMovementBrick 
+
+	mov dl, paddleX; dl = paddleX
+
+	mov ah, velocityX ; ah = velocity X
+	mov al, velocityY ; al = velocity Y
+
+	add ballCurrentX, ah
+	add ballCurrentY, al
+
+	cmp ballCurrentY, 4
+	jg checklow
+	mov ballCurrentY, 4
+	neg al	
+	mov velocityY, al
+checklow:
+	cmp ballCurrentY, 21
+	jl checkxleft
+	mov ballCurrentY, 21
+	cmp ballCurrentX, dl
+	jb over
+	add dl, 10
+	cmp ballCurrentX, dl
+	ja over
+	neg al	
+	mov velocityY, al
+checkxleft:
+	cmp ballCurrentX, 1
+	jg checkxright
+	mov ballCurrentX, 1
+	neg ah	
+	mov velocityX, ah
+checkxright:
+	cmp ballCurrentX, 78
+	jl done
+	mov ballCurrentX, 78
+	neg ah
+	mov velocityX, ah
+	jmp done
+over:
+	call EraseBall
+	dec Life
+	cmp Life, 0
+	je gamelose
+	mov GameOn, 0
+	mov BallCurrentX, 40
+	mov ballCurrentY, 21
+	jmp done
+gamelose:
+	mov GameOver, 1
+done:
+	call BallMovementBrick
+	cmp ballOnBrick, 0 ; no collision
+	je skipCollision
+
+	; Temporarily play game sound here
+	push dx  ; ;; ; ; 
+	mov dx, 1500 ; ;; ; ; 
+	call PlayFrequency; ;; ; ; 
+	pop dx; ;; ; ; 
+	; sound ^^^ when pop
 
 	mov ax, PlayScore
 	add ax, 1
@@ -851,129 +964,14 @@ win:
 	mov GameOver, 0
 skipCollision:
 	call SpawnBall
-	cmp velocityX, 2
-	jg upperbound
-	cmp velocityX, -2
-	jl lowerbound
-	jmp done2
-upperbound:
-	mov velocityX, 2
-	jmp done2
-lowerbound:
-	mov velocityX, -2
-done2:
-	
-	mov paddleMovement,0
-	pop cx
+	; mov dx, OFFSET ballCurrentX
+	; mov cx, 2 
+	; call DumpMem 
 	pop dx
 	pop ax
 	popf
 	ret
-BallMovement ENDP
-
-
-BallMovementBrick1 PROC
-	pushf
-	push ax
-	push bx
-	push cx
-	push dx 
-	push si 
-	push di 
-	push bp 
-	push es 
-
-	
-	mov ah, ballCurrentY ; ah = Y
-	mov al, ballCurrentX ; al = X
-	mov si, 0 ; SI = index of array
-	
-	mov	ax, 0B800h
-	mov es, ax
-
-	mov cl, ah
-	mov ch, 0
-	mov bx, 0
-
-	addbx:
-		add bx, 160
-		loop addbx
-
-	mov cl, al
-	addbx1:
-		inc bx
-		inc bx
-		loop addbx1
-
-	mov dl, ' '
-	cmp es:[bx], dl
-	je nobrick
-	mov BallonBrick, 1
-	mov bx, offset bricksScores
-
-	sub ah, 5 ; ah = Y
-	cmp ah, 0
-	je bricks12
-	cmp ah, 2
-	je bricks12
-	cmp ah, 4
-	je bricks12
-
-	subtr:
-		inc si
-		sub al, 6
-		cmp al, 7
-		jg subtr
-		dec si
-
-		mov cl, ah
-		mov ch, 0
-		mov di, 12
-	here:
-		add bx, di
-		call switchDI
-		loop here
-		jmp outofhere
-
-	bricks12:
-		inc si
-		sub al, 6
-		cmp al, 4
-		jg bricks12
-		dec si
-
-		mov cl, ah
-		mov ch, 0
-		cmp cl, 0
-		je outofhere
-		mov di, 11
-	here1:
-		add bx, di
-		call switchDI
-		loop here1
-
-
-	outofhere:
-		add bx, si
-		mov dl, [bx]
-		dec dl
-		mov [bx], dl
-		jmp done
-	nobrick:
-		mov ballOnBrick, 0
-	done:
-	pop es 
-	pop bp 
-	pop di 
-	pop si 
-	pop dx 
-	pop cx 
-	pop bx 
-	pop ax
-	popf
-ret
-BallMovementBrick1 ENDP
-
+BallMovement1 ENDP
 
 SwitchDI PROC 
 	pushf
@@ -1542,6 +1540,7 @@ LoserScreen PROC
 	; dx - picture offset
 	pushf
 	push di
+	call SpeakerOff
 	mov dx, OFFSET loserLayout
 
 	mov di, 0
@@ -1762,6 +1761,8 @@ GameLoop PROC
 
 lose:
 	call LoserScreen
+	call DisplayScore ; make display loser score
+	call ReadChar
 	jmp finish
 win:
 	call WinnerScreen
